@@ -5,7 +5,7 @@ import os
 import select
 import threading
 import datetime, time
-import ConfigParser
+import Conf
 import sys
 import traceback
 import logging
@@ -14,7 +14,6 @@ import IRecv_Module as IM
 from MPI_Wrapper import Tags ,Client
 
 from BaseThread import BaseThread
-from Conf import Policy
 from Task import TaskStatus
 from WorkerRegistry import WorkerStatus
 
@@ -52,6 +51,7 @@ class HeartbeatThread(BaseThread):
     def run(self):
         #add first time to ping master
         send_dict = {}
+        send_dict['flag'] = 'FirstPing'
         send_dict[Tags.MPI_REGISTY] = {'uuid':self.worker_agent.uuid,'capacity':self.worker_agent.capacity}
         send_dict['ctime'] = datetime.datetime.now()
         send_str = json.dumps(send_dict)
@@ -78,7 +78,24 @@ class HeartbeatThread(BaseThread):
             else:
                 time.sleep(self.interval)
 
-        # TODO add the last time to ping Master
+        # the last time to ping Master
+        if not self.acquire_queue.empty():
+            remain_command = ''
+            while not self.acquire_queue.empty():
+                remain_command+=self.acquire_queue.get().keys()
+            log.waring('[HeartBeat] Acquire Queue has more command, %s, ignore them'%remain_command)
+        send_dict.clear()
+        send_dict['flag'] = 'LastPing'
+        send_dict['Task'] = []
+        while not self.worker_agent.task_completed_queue.empty():
+            task = self.worker_agent.task_completed_queue.get()
+            send_dict['Task'].append(task)
+        # TODO add node health information
+        send_dict['ctime'] = datetime.datetime.now()
+        send_str = json.dumps(send_dict)
+        self._client.send_string(send_str, len(send_str), 0, Tags.MPI_PING)
+
+
 
     def set_ping_duration(self, interval):
         self.interval = interval
@@ -104,13 +121,13 @@ class WorkerAgent:
         self.tmpExecutor = {}
         self.tmpLock = threading.RLock()
 
-        self.wait_to_ping = {}      # The operation/requirements need to transfer to master through heart beat
+        # The operation/requirements need to transfer to master through heart beat
         self.heartbeat = HeartbeatThread(self.client,self)
 
         self.ignoreTask = []
-
+        self.cfg = Conf.GlobalCfg.getCfg()
         self.cond = threading.Condition()
-        self.worker = Worker()
+        self.worker = Worker(self,self.cond,self.cfg)
 
     def start(self):
         self.heartbeat.run()
@@ -145,13 +162,51 @@ class WorkerAgent:
                             self.ignoreTask.append(v)
                     # master disconnect ack,
                     elif k == Tags.LOGOUT_ACK:
-                        # TODO
+                        if self.worker.status != WorkerStatus.FINALIZED:
+                            log.error('logout error because of wrong worker status, worker status = %d', self.worker.status)
+                            # TODO do something
+                        self.cond.acquire()
+                        self.cond.notify()
+                        self.cond.release()
+                        # stop worker agent
+                        self.heartbeat.acquire_queue.put({Tags.LOGOUT_ACK:self.wid})
+                        break
+                    # app finalize {fin:{boot:v, args:v, data:v, resdir:v}}
+                    elif k == Tags.APP_FIN:
+                        self.tmpLock.acquire()
+                        self.tmpExecutor = v['fin']
+                        self.tmpLock.release()
+                        self.worker.finialized = True
+
+            self.worker.join()
+            log.info('[WorkerAgent] Worker thread has joined')
+            self.stop()
+
+    def stop(self):
+        log.info('[WorkerAgent] Agent stop...')
+        self.__should_stop_flag = True
+        if self.heartbeat:
+            self.heartbeat.stop()
+            self.heartbeat.join()
+        self.client.stop()
+
+    def task_done(self, tid, task_stat,**kwd):
+        tmp_dict = dict({'task_stat':task_stat},**kwd)
+        self.task_completed_queue.put({tid:tmp_dict})
+
+    def app_ini_done(self,returncode,errmsg=None):
+        if returncode != 0:
+            log.error('[Error] Worker initialization error, error msg = %s',errmsg)
+        self.heartbeat.acquire_queue.put({Tags.APP_INI:{'wid':self.wid,'recode':returncode}})
+
+    def app_fin_done(self, returncode, errmsg = None):
+        if returncode != 0:
+            log.error('[Error] Worker finalization error, error msg = %s',errmsg)
+        self.heartbeat.acquire_queue.put({Tags.APP_FIN:{'wid':self.wid,'recode':returncode}})
 
 
 
-
-
-    def _app_change(self):
+    def _app_change(self, appid):
         """
         WorkerAgent calls when new app comes.
         :return:
@@ -162,18 +217,13 @@ class WorkerAgent:
     def health_info(self):
         """
         Provide node health information which is transfered to Master
-        :return:
+        Info: CPU-Usage, numProcessors, totalMemory, usedMemory
+        Plug in self-costume bash scripts to add more information
+        :return: dict
         """
         #TODO
         pass
 
-    def task_completion_info(self):
-        """
-        Provide the completed tasks with Master
-        :return:
-        """
-        # TODO
-        pass
 
 class Worker(BaseThread):
     def __init__(self, workagent, cond, cfg):
@@ -185,7 +235,7 @@ class Worker(BaseThread):
         self.finialized = False
         self.status = WorkerStatus.NEW
 
-        self.cfg= None
+        self.cfg= cfg
         self.log = wlog
         self.stdout = self.stderr = subprocess.PIPE
         self.process = None
@@ -222,8 +272,9 @@ class Worker(BaseThread):
                     if task in self.workeragent.ignoreTask:
                         continue
                     # TODO add task failed handle
-                    self.do_task(task.boot,task.args, task.data, task.res_dir,task.tid)
-                    self.workeragent.task_completed_queue.put(task)
+                    tid,v = task.popitem()
+                    self.do_task(v['boot'],v['args'],v['data'],v['resdir'])
+                    self.workeragent.task_done(tid, self.task_status)
 
                 wlog.info('Worker: No task to do, Idle...')
                 self.status = WorkerStatus.IDLE
@@ -255,8 +306,6 @@ class Worker(BaseThread):
             if self.do_task(boot, args, data, resdir, flag='init'):
                 self.initialized = True
 
-
-
     def do_task(self, boot, args, data, resdir,tid=0,**kwd):
         self.running_task = tid
         self.start_time = datetime.datetime.now()
@@ -264,10 +313,10 @@ class Worker(BaseThread):
         self.pid = self.process.pid
         if len(resdir) and not os.path.exists(resdir):
             os.makedirs(resdir)
-        if kwd.has_key('flag') and kwd['flag'] == 'init':
-            logFile = open('Init_log','w+')
+        if kwd.has_key('flag'):
+            logFile = open('%s/%s_log'%(resdir,kwd['flag']),'w+')
         else:
-            logFile = open('app_%d_task_%d'%(self.workeragent.appid,tid), 'w+')
+            logFile = open('%s/app_%d_task_%d'%(resdir,self.workeragent.appid,tid), 'w+')
         while True:
             fs = select.select([self.process.stdout],[],[],self.cfg.timeout)
             if not fs[0]:
@@ -286,6 +335,13 @@ class Worker(BaseThread):
                         break
                 if not self._checkLimit():
                     break
+        self.returncode = self.process.wait()
+        if self.status:
+            return
+        if 0 == self.returncode:
+            self.status = status.SUCCESS
+        else:
+            self.status = status.FAIL
 
     def finalize(self, boot, args, data, resdir):
         wlog.info('Worker start to finalize...')
