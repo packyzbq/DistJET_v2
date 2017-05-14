@@ -1,4 +1,5 @@
 import re
+import types
 import os
 
 class Parser:
@@ -24,8 +25,29 @@ class Parser:
     successPattern = []
 
     def __init__(self,cfg):
-        self.fatal = Parser.fatalPattern
-        self.success = Parser.successPattern
+        self.fatal = set(Parser.fatalPattern)
+        self.success = set(Parser.successPattern)
+        if cfg.getAttr['FatalPattern']:
+            self.fatal.union(cfg.getAttr['FatalPattern'])
+        if cfg.getAttr['SuccPattern']:
+            self.fatal.union(cfg.getAttr['SuccPattern'])
+
+    def addFatalPattern(self, pattern):
+        if type(pattern) == types.ListType:
+            self.fatal.union(pattern)
+        elif type(pattern) == types.StringType:
+            self.fatal.add(pattern)
+        else:
+            print('[Parser]: Invaid pattern type')
+
+    def addSuccPattern(self,pattern):
+        if type(pattern) == types.ListType:
+            self.success.union(pattern)
+        elif type(pattern) == types.StringType:
+            self.success.add(pattern)
+        else:
+            print('[Parser]: Invaid pattern type')
+
 
     def parse(self, word):
         if not word:
@@ -37,3 +59,7 @@ class Parser:
                 if match:
                     return False, "Fatal line: %s"%w
         return True,None
+
+    def listPattern(self):
+        print('Fatal Pattern: %s'%self.fatal)
+        print('Success Pattern: %s'%self.success)
