@@ -92,9 +92,19 @@ class JobMaster(IJobMaster):
 
         self.__stop = False
 
+    def stop(self):
+        self.task_scheduler.join()
+        master_log.info('[Master] TaskScheduler has joined')
+        self.control_thread.stop()
+        self.control_thread.join()
+        master_log.info('[Master] Control Thread has joined')
+        self.server.stop()
+        master_log.info('[Master] Server stop')
+        self.__stop = True
+
     def startProcessing(self):
         simple_appmgr = SimpleAppManager(apps=self.applications)
-        self.task_scheduler = IScheduler.SimpleScheduler()
+        self.task_scheduler = IScheduler.SimpleScheduler(simple_appmgr,)
         while not self.__stop:
             if not self.recv_buffer.empty():
                 msg = self.recv_buffer.get()
