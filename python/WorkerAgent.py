@@ -70,8 +70,13 @@ class HeartbeatThread(BaseThread):
                         continue
                     send_dict = dict(send_dict, **tmp_d)
                 self.queue_lock.release()
+                send_dict['Task'] = []
+                while not self.worker_agent.task_completed_queue.empty():
+                    task = self.worker_agent.task_completed_queue.get()
+                    send_dict['Task'].append(task)
+                send_dict['health'] = self.worker_agent.health_info()
+                send_dict['rTask'] = self.worker_agent.worker.running_task
                 send_dict['ctime'] = datetime.datetime.now()
-
                 send_str = json.dumps(send_dict)
                 self._client.send_string(send_str, len(send_str), 0, Tags.MPI_PING)
             except Exception:
