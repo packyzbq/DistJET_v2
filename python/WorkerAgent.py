@@ -10,6 +10,7 @@ import sys
 import traceback
 import logging
 
+import HealthDetect as HD
 import IRecv_Module as IM
 from MPI_Wrapper import Tags ,Client
 
@@ -90,7 +91,8 @@ class HeartbeatThread(BaseThread):
         while not self.worker_agent.task_completed_queue.empty():
             task = self.worker_agent.task_completed_queue.get()
             send_dict['Task'].append(task)
-        # TODO add node health information
+        # add node health information
+        send_dict['health'] = self.worker_agent.health_info()
         send_dict['ctime'] = datetime.datetime.now()
         send_str = json.dumps(send_dict)
         self._client.send_string(send_str, len(send_str), 0, Tags.MPI_PING)
@@ -221,8 +223,19 @@ class WorkerAgent:
         Plug in self-costume bash scripts to add more information
         :return: dict
         """
-        #TODO
-        pass
+        tmpdict = {}
+        tmpdict['CpuUsage'] = HD.getCpuUsage()
+        tmpdict['MemoUsage'] = HD.getMemoUsage()
+        script = self.cfg.getAttr("health_detect_scripts")
+        if script and os.path.exists(self.cfg.getAttr('topDir')+'/'+script):
+            script = self.cfg.getAttr('topDir')+'/'+script
+            rc = subprocess.Popen(executable=script,stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            info, err = rc.communicate()
+            if err=='':
+                tmpdict['script_info'] = info
+
+        return tmpdict
+
 
 
 class Worker(BaseThread):
