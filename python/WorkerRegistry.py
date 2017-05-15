@@ -106,3 +106,5 @@ class WorkerRegistry:
     def get_worker_list(self):
         return self.__all_workers.values()
 
+    def __iter__(self):
+        return self.__all_workers.copy().__iter__()
