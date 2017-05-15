@@ -7,7 +7,7 @@ PolicyLock = threading.RLock()
 CfgLock = threading.RLock()
 
 class AppConf:
-    defaults = {
+    __cfg = {
         'appid':None,
         'appName': None,
         'workDir': None,
@@ -17,43 +17,46 @@ class AppConf:
     def __init__(self, appid, appName):
         self.cfg = dict([(k, v) for (k, v) in AppConf.defaults.items()])
 
-    def __getattr__(self, item):
+    @staticmethod
+    def loadAppCfg(cfg_path = None):
+        # FIXME: Need abs path
+        if cfg_path and os.path.exists(cfg_path):
+            cf = ConfigParser.ConfigParser()
+            cf.read(cfg_path)
+            if cf.has_section('AppCfg'):
+                for key in cf.options('AppCfg'):
+                    AppConf.__cfg[key] = cf.get('AppCfg', key)
+        return AppConf.__cfg
+
+    @staticmethod
+    def __getattr__(item):
         assert type(item) == types.StringType, "ERROR: attribute must be of String type!"
-        if self.cfg.has_key(item):
-            return self.cfg[item]
+        if AppConf.__cfg.has_key(item):
+            return AppConf.__cfg[item]
         else:
             return None
-    def __setattr__(self, key, value):
+
+    @staticmethod
+    def __setattr__(key, value):
         assert type(key) == types.StringType, "ERROR: attribute must be of String type!"
-        self.cfg[key] = value
+        AppConf.__cfg[key] = value
 
 
 class GlobalCfg:
-    defaults={
+    __config={
         'health_detect_scripts': None,
         'topDir': None
     }
 
-    __config = None
-    def __init__(self,cfg_path=None):
-        GlobalCfg.__config = dict([(k,v) for (k,v) in GlobalCfg.defaults.items()])
+    @staticmethod
+    def loadCfg(cfg_path=None):
         # FIXME: Need abs path
         if cfg_path and os.path.exists(cfg_path):
             cf = ConfigParser.ConfigParser()
             cf.read(cfg_path)
             if cf.has_section('Cfg'):
                 for key in cf.options('Cfg'):
-                    GlobalCfg.__config[key] = cf.getint('Cfg',key)
-
-    @staticmethod
-    def getCfg(cfg_path=None):
-        if GlobalCfg.__config is None:
-            try:
-                CfgLock.acquire()
-                if GlobalCfg.__config is None:
-                    GlobalCfg(cfg_path)
-            finally:
-                CfgLock.release()
+                    GlobalCfg.__config[key] = cf.get('Cfg', key)
         return GlobalCfg.__config
 
     @staticmethod
@@ -77,32 +80,23 @@ class GlobalCfg:
             CfgLock.release()
 
 class Policy:
-    defaults={
+    __policy={
         'LOST_WORKER_TIMEOUT' : 10,
-        'IDLE_WORKER_TIMEOUT' : 100
+        'IDLE_WORKER_TIMEOUT' : 100,
+        'CONTROL_DELAY'       : 1,
+        'ATTEMPT_TIME'        : 2
     }
-    __policy = None
 
-    def __init__(self, policy_path=None):
-        Policy.__policy = dict([(k, v) for (k, v) in Policy.defaults.items()])
+    @staticmethod
+    def loadPolicy(policy_path=None):
         # FIXME: need abs path
         if policy_path and os.path.exists(policy_path):
-            #add parse config and set policy
+            # add parse config and set policy
             cf = ConfigParser.ConfigParser()
             cf.read(policy_path)
             if cf.has_section('Policy'):
                 for key in cf.options('Policy'):
                     Policy.__policy[key] = cf.getint('Policy',key)
-
-    @staticmethod
-    def getPolicy(policy_path=None):
-        if Policy.__policy is None:
-            try:
-                PolicyLock.acquire()
-                if Policy.__policy is None:
-                    Policy(policy_path)
-            finally:
-                PolicyLock.release()
         return Policy.__policy
 
     @staticmethod
@@ -122,6 +116,6 @@ class Policy:
             if Policy.__policy.has_key(name):
                 return Policy.__policy[name]
             else:
-                return None
+                return 1
         finally:
             PolicyLock.release()

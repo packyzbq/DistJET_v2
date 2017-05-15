@@ -13,15 +13,14 @@ def MSG_Wrapper(**kwd):
     return json.dumps(kwd)
 
 class IScheduler:
-    def __init__(self, appmgr, policy, conf, worker_registry=None):
+    def __init__(self, appmgr, worker_registry=None):
         #self.master = master
+        self.appid = None
         self.worker_registry = worker_registry
         self.appmgr = appmgr
         self.task_todo_queue = Queue.Queue()
         self.scheduled_task_list = {}
         self.completed_queue = Queue.Queue()
-        self.policy = policy
-        self.conf = conf
 
     def initialize(self):
         """
@@ -47,7 +46,7 @@ class IScheduler:
         """
         The master call this method when a Worker ask for tasks
         :param w_entry:
-        :return: a list of assigned tasks
+        :return: a list of assigned task id
         """
         raise NotImplementedError
 
@@ -57,12 +56,6 @@ class IScheduler:
         :return:
         """
         self.worker_registry = worker_registry
-
-    def getConf(self):
-        pass
-
-    def setConf(self):
-        pass
 
     def has_more_work(self):
         """
@@ -94,7 +87,15 @@ class IScheduler:
         """
         raise NotImplementedError
 
-    def worker_initialize(self, wid):
+    def init_worker(self):
+        app = self.appmgr.get_current_app()
+        task_dict = {}
+        task_dict['boot'] = app.app_init_boot
+        task_dict = dict(task_dict, **app.app_init_extra)
+        task_dict['resdir'] = app.res_dir
+        return task_dict
+
+    def worker_initialized(self, wid):
         """
         called by Master when a worker agent successfully initialized the worker, (maybe check the init_output)
         when the method returns, the worker can be marked as ready
@@ -102,6 +103,14 @@ class IScheduler:
         :return:
         """
         raise NotImplementedError
+
+    def worker_finalized(self, wid):
+        """
+
+        :param wid:
+        :return:
+        """
+        raise  NotImplementedError
 
     def worker_added(self, wid):
         """

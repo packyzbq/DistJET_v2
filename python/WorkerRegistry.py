@@ -30,20 +30,20 @@ class WorkerEntry:
         self.assigned = 0
 
         self.status = WorkerStatus.NEW
-
+        self.alive_lock = threading.RLock()
         self.alive = True
 
     def capacity(self):
         return self.max_capacity-self.assigned
 
     def isLost(self):
-        # FIXME: add LOST_WORKER_TIMEOUT into config
+        # todo: add LOST_WORKER_TIMEOUT into config
         return time.time()-self.last_contact_time > self.policy.LOST_WORKER_TIMEOUT
 
     def getStatus(self):
         return self.status
     def isIdle_timeout(self):
-        # FIXME: add IDLE_WORKER_TIMEOUT into config
+        # todo: add IDLE_WORKER_TIMEOUT into config
         return self.idle_time and self.policy.IDLE_WORKER_TIMEOUT and time.time()-self.idle_time > self.policy.IDLE_WORKER_TIMEOUT
 
 class WorkerRegistry:
