@@ -85,8 +85,10 @@ class WorkerRegistry:
             wRegistery_log.warning('attempt to remove not registered worker: wid=%d', wid)
             return False
         else:
+            if not self.__all_workers[wid].alive:
+                wRegistery_log.error('attempt to remove alive worker: wid=%d',wid)
+                return False
             wRegistery_log.info('worker removed: wid=%d',wid)
-            self.__all_workers[wid].alive = False
             try:
                 del(self.__all_workers[wid])
                 del(self.__all_workers_uuid[w_uuid])

@@ -127,7 +127,7 @@ class JobMaster(IJobMaster):
 
 
     def remove_worker(self,wid):
-        self.worker_registry.remove_worker(wid)
+        return self.worker_registry.remove_worker(wid)
 
     def anaylize_health(self, info):
         pass
@@ -162,7 +162,9 @@ class JobMaster(IJobMaster):
                                     self.task_scheduler.task_failed(recv_dict['wid'], tid, val['time_start'], val['time_fin'],val['errcode'])
                             else:
                                 master_log.error('Task msg incomplete, key=%s'%val.keys())
-                        # TODO logout and disconnect worker
+                        # logout and disconnect worker
+                        self.remove_worker(recv_dict['wid'])
+
                 # normal ping msg
                 elif recv_dict.has_key('Task'):
                     # handle complete tasks

@@ -56,7 +56,7 @@ class HeartbeatThread(BaseThread):
         send_dict[Tags.MPI_REGISTY] = {'uuid':self.worker_agent.uuid,'capacity':self.worker_agent.capacity}
         send_dict['ctime'] = datetime.datetime.now()
         send_str = json.dumps(send_dict)
-        self._client.send_string(send_str, len(send_str),0,Tags.MPI_PING)
+        self._client.send_string(send_str, len(send_str),0,Tags.MPI_REGISTY)
 
         while not self.get_stop_flag():
             try:
@@ -93,6 +93,7 @@ class HeartbeatThread(BaseThread):
             log.waring('[HeartBeat] Acquire Queue has more command, %s, ignore them'%remain_command)
         send_dict.clear()
         send_dict['wid'] = self.worker_agent.wid
+        send_dict['uuid'] = self.worker_agent.uuid
         send_dict['flag'] = 'lastPing'
         send_dict['Task'] = []
         while not self.worker_agent.task_completed_queue.empty():
@@ -102,7 +103,7 @@ class HeartbeatThread(BaseThread):
         send_dict['health'] = self.worker_agent.health_info()
         send_dict['ctime'] = datetime.datetime.now()
         send_str = json.dumps(send_dict)
-        self._client.send_string(send_str, len(send_str), 0, Tags.MPI_PING)
+        self._client.send_string(send_str, len(send_str), 0, Tags.MPI_DISCONNECT)
 
 
 
@@ -340,7 +341,7 @@ class Worker(BaseThread):
         else:
             logFile = open('%s/app_%d_task_%d'%(resdir,self.workeragent.appid,tid), 'w+')
         while True:
-            fs = select.select([self.process.stdout],[],[],self.cfg.timeout)
+            fs = select.select([self.process.stdout],[],[],Conf.AppConf.cfg.timeout)
             if not fs[0]:
                 self.task_status = status.ANR
                 self.kill()

@@ -14,18 +14,25 @@ class AppConf:
         'topDir': GlobalCfg.getAttr('topDir')
     }
 
-    def __init__(self, appid, appName):
-        self.cfg = dict([(k, v) for (k, v) in AppConf.defaults.items()])
+    load_flag = False
+    load_lock = threading.RLock()
+
 
     @staticmethod
     def loadAppCfg(cfg_path = None):
         # FIXME: Need abs path
-        if cfg_path and os.path.exists(cfg_path):
-            cf = ConfigParser.ConfigParser()
-            cf.read(cfg_path)
-            if cf.has_section('AppCfg'):
-                for key in cf.options('AppCfg'):
-                    AppConf.__cfg[key] = cf.get('AppCfg', key)
+        try:
+            AppConf.load_lock.acquire()
+            if cfg_path and os.path.exists(cfg_path):
+                cf = ConfigParser.ConfigParser()
+                cf.read(cfg_path)
+                if cf.has_section('AppCfg'):
+                    for key in cf.options('AppCfg'):
+                        AppConf.__cfg[key] = cf.get('AppCfg', key)
+            AppConf.load_flag = True
+        finally:
+            AppConf.load_lock.release()
+
         return AppConf.__cfg
 
     @staticmethod
