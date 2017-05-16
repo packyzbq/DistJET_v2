@@ -88,7 +88,7 @@ class GlobalCfg:
 
 class Policy:
     __policy={
-        'LOST_WORKER_TIMEOUT' : 10,
+        'LOST_WORKER_TIMEOUT' : 60,
         'IDLE_WORKER_TIMEOUT' : 100,
         'CONTROL_DELAY'       : 1,
         'ATTEMPT_TIME'        : 2
@@ -123,6 +123,6 @@ class Policy:
             if Policy.__policy.has_key(name):
                 return Policy.__policy[name]
             else:
-                return 1
+                return 0
         finally:
             PolicyLock.release()

@@ -1,6 +1,6 @@
-import logging
-import IApplication
 import Queue
+import logging
+
 import Task
 
 appmgr_log = logging.getLogger('AppMgr')
@@ -71,7 +71,7 @@ class SimpleAppManager(IAppManager):
     def create_task(self,app):
         data = app.split()
         for k,v in data:
-            # create tasks, and store in task_queue
+            # todo create tasks, and store in task_queue
             task = Task.Task()
             task.initial(app.app_boot, app.args, {k:v}, app.res_dir)
             self.task_queue.put(task)

@@ -83,5 +83,8 @@ class Task:
         self.history[-1].assign(wid)
         self.status = TaskStatus.HALT
 
+    def getdata(self):
+        return self.data
+
 
 

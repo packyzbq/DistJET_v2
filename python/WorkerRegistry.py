@@ -37,14 +37,14 @@ class WorkerEntry:
         return self.max_capacity-self.assigned
 
     def isLost(self):
-        # todo: add LOST_WORKER_TIMEOUT into config
-        return time.time()-self.last_contact_time > self.policy.LOST_WORKER_TIMEOUT
+        if Policy.getAttr('LOST_WORKER_TIMEOUT'):
+            return time.time()-self.last_contact_time > Policy.getAttr('LOST_WORKER_TIMEOUT')
+        return False
 
     def getStatus(self):
         return self.status
     def isIdle_timeout(self):
-        # todo: add IDLE_WORKER_TIMEOUT into config
-        return self.idle_time and self.policy.IDLE_WORKER_TIMEOUT and time.time()-self.idle_time > self.policy.IDLE_WORKER_TIMEOUT
+        return self.idle_time and self.policy.IDLE_WORKER_TIMEOUT and time.time()-self.idle_time > Policy.getAttr('IDLE_WORKER_TIMEOUT')
 
 class WorkerRegistry:
     def __init__(self):
