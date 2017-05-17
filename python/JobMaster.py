@@ -1,5 +1,5 @@
 import json
-import time
+import time,datetime
 import sys
 import logging
 import Queue
@@ -127,14 +127,19 @@ class JobMaster(IJobMaster):
 
 
     def remove_worker(self,wid):
-        return self.worker_registry.remove_worker(wid)
+        self.worker_registry.remove_worker(wid)
+        self.task_scheduler.worker_removed(wid, datetime.datetime.now())
 
     def anaylize_health(self, info):
         pass
 
     def startProcessing(self):
         self.appmgr = SimpleAppManager(apps=self.applications)
-        self.task_scheduler = IScheduler.SimpleScheduler(self.appmgr,self.worker_registry)
+        #self.task_scheduler = IScheduler.SimpleScheduler(self.appmgr,self.worker_registry)
+        if self.appmgr.get_current_app().scheduler:
+            self.task_scheduler = self.appmgr.get_current_app().scheduler(self.appmgr, self.worker_registry)
+        else:
+            self.task_scheduler = IScheduler.SimpleScheduler(self.appmgr,self.worker_registry)
         while not self.__stop:
             if not self.recv_buffer.empty():
                 msg = self.recv_buffer.get()

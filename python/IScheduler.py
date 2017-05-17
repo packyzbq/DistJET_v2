@@ -2,6 +2,7 @@ import json
 import Queue
 import time
 import logging
+import WorkerRegistry
 import Conf
 import Task
 from MPI_Wrapper import Tags
@@ -19,7 +20,7 @@ class IScheduler:
         self.worker_registry = worker_registry
         self.appmgr = appmgr
         self.task_todo_queue = Queue.Queue()
-        self.scheduled_task_list = {}
+        self.scheduled_task_list = {}       # wid: tid_list
         self.completed_queue = Queue.Queue()
 
     def initialize(self):
@@ -33,14 +34,14 @@ class IScheduler:
         """
         :return:
         """
-        raise NotImplementedError
+        pass
 
     def finalize(self):
         """
         The operation when Scheduler exit
         :return:
         """
-        raise NotImplementedError
+        pass
 
     def assignTask(self, w_entry):
         """
@@ -121,7 +122,7 @@ class IScheduler:
         """
         raise NotImplementedError
 
-    def worker_removed(self, wid):
+    def worker_removed(self, wid, time_point):
         """
         This method is called when the worker has been removed (either lost or terminated due to some reason).
         :param wid:
@@ -130,4 +131,62 @@ class IScheduler:
         raise
 
 class SimpleScheduler(IScheduler):
-    pass
+
+    def assignTask(self, w_entry):
+        if not w_entry.alive:
+            return None
+        room = w_entry.capacity()
+        task_list=[]
+        self.scheduled_task_list[w_entry.wid] = []
+        for i in range(0,room):
+            tmptask = self.task_todo_queue.get()
+            tmptask.assign(w_entry.wid)
+            task_list.append(tmptask.tid)
+            self.scheduled_task_list[w_entry.wid].append(tmptask.tid)
+        return task_list
+
+    def task_failed(self, wid, tid, time_start, time_finish, error):
+        tmptask = self.appmgr.get_task(tid)
+        tmptask.fail(time_start,time_finish,error)
+        self.task_todo_queue.put(tmptask)
+        if tid in self.scheduled_task_list[wid]:
+            self.scheduled_task_list[wid].remove(tid)
+
+    def task_completed(self, wid, tid, time_start, time_finish):
+        tmptask = self.appmgr.get_task(tid)
+        tmptask.complete(time_start,time_finish)
+        if tid in self.scheduled_task_list[wid]:
+            self.scheduled_task_list[wid].remove(tid)
+
+    def worker_initialized(self, wid):
+        entry = self.worker_registry.get_entry(wid)
+        try:
+            entry.alive_lock.acquire()
+            entry.status = WorkerRegistry.WorkerStatus.INITILAZED
+        finally:
+            entry.alive_lock.release()
+
+    def worker_added(self, wid):
+        # TODO
+        pass
+
+    def worker_removed(self, wid, time_point):
+        for tid in self.scheduled_task_list[wid]:
+            self.appmgr.get_task(tid).withdraw(time_point)
+            self.task_todo_queue.put(self.appmgr.get_task(tid))
+            self.scheduled_task_list[wid].remove(tid)
+
+    def worker_finalized(self, wid):
+        w = self.worker_registry.get_entry(wid)
+        if w.alive:
+            try:
+                w.alive_lock.acquire()
+                w.alive = False
+                w.status = WorkerRegistry.WorkerStatus.FINALIZED
+            finally:
+                w.alive_lock.release()
+
+
+
+
+

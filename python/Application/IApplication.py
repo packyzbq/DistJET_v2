@@ -2,6 +2,9 @@ import os
 import subprocess
 import types
 
+from python import IScheduler
+
+
 class IApplication:
     def __init__(self):
         self.app_boot=[]
@@ -14,6 +17,19 @@ class IApplication:
 
         self.app_fin_boot = []
         self.app_fin_extra = {}
+
+        self.scheduler = None
+
+    def set_scheduler(self, scheduler):
+        if not callable(scheduler) or not issubclass(scheduler,IScheduler):
+            # TODO unrecognized scheduler
+            print('Scheduler %s can not be recognized')
+            return
+        else:
+            self.scheduler = scheduler
+
+    def get_scheduler(self):
+        return self.scheduler
 
     def set_init_boot(self,init_boot):
         if type(init_boot) is types.ListType:

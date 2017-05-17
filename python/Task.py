@@ -24,6 +24,7 @@ class TaskDetail:
         self.time_exec = 0
         self.time_end = 0
         self.time_scheduled = 0
+        self.info = None
 
         self.error = None
 
@@ -39,9 +40,18 @@ class TaskDetail:
         self.time_start = time_start
         self.time_end = time_finish
         self.error = error_code
+        self.info = 'Fail'
 
-    def complet(self, time_start, time_end):
-        self.fail(time_start, time_end)
+    def complete(self, time_start, time_end):
+        self.time_start = time_start
+        self.time_end = time_end
+        self.info = 'Complete'
+
+    def withdraw(self, time_term):
+        self.time_end = time_term
+        self.info = 'Cancel'
+
+
 
 
 class Task:
@@ -82,6 +92,12 @@ class Task:
             self.history.append(TaskDetail())
         self.history[-1].assign(wid)
         self.status = TaskStatus.HALT
+
+    def withdraw(self, time_term):
+        self.status = TaskStatus.INITIALIZED
+        self.history[-1].withdraw(time_term)
+
+
 
     def getdata(self):
         return self.data
