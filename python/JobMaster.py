@@ -148,7 +148,7 @@ class JobMaster(IJobMaster):
                 recv_dict = json.loads(msg.sbuf[0:msg.size])
                 #TODO handle node health
                 if recv_dict.has_key('flag'):
-                    if recv_dict['flag'] == 'firstPing':
+                    if recv_dict['flag'] == 'firstPing' and msg.tag == MPI_Wrapper.Tags.MPI_REGISTY:
                         # register worker
                         # check dict's integrity
                         if self.check_msg_integrity('firstPing', recv_dict):
@@ -156,7 +156,7 @@ class JobMaster(IJobMaster):
                         else:
                             master_log.error('firstPing msg incomplete, key=%s'%recv_dict.keys())
                         self.command_q.put({MPI_Wrapper.Tags.APP_INI: self.appmgr.get_app_init(self.appmgr.current_app_id)})
-                    elif recv_dict['flag'] == 'lastPing':
+                    elif recv_dict['flag'] == 'lastPing' and msg.tag == MPI_Wrapper.Tags.MPI_DISCONNECT:
                         # last ping from worker, sync completed task, report node's health, logout and disconnect worker
                         for tid, val in recv_dict['Task']:
                             # handle complete task
@@ -222,13 +222,12 @@ class JobMaster(IJobMaster):
                             if v['recode'] == status.SUCCESS:
                                 self.task_scheduler.worker_finalized(recv_dict['wid'])
                                 master_log.info('worker %d finalized')
+                                # TODO if has new app, return Tags.new_app, or return Tags.Logout
                             else:
                                 # TODO: Optional, add other operation
                                 master_log.error('worker %d finalize error, errmsg=%s'%(recv_dict['wid'],v['errmsg']))
-                        # worker ready to logout
-                        elif int(k) == MPI_Wrapper.Tags.LOGOUT:
-                            # TODO: Optional, add other operation
-                            self.command_q.put({MPI_Wrapper.Tags.LOGOUT_ACK:''})
+
+
             send_dict = {}
             while not self.command_q.empty():
                 send_dict = dict(send_dict, **self.command_q.get())

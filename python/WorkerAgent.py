@@ -137,6 +137,7 @@ class WorkerAgent:
         self.ignoreTask = []
         self.cond = threading.Condition()
         self.worker = Worker(self,self.cond)
+        self.worker.start()
 
     def start(self):
         self.heartbeat.run()
@@ -145,7 +146,7 @@ class WorkerAgent:
                 recv_dict = json.loads(self.recv_buff.get())
                 for k,v in recv_dict:
                     # registery info v={wid:val,init:{boot:v, args:v, data:v, resdir:v}, appid:v}
-                    if k == Tags.MPI_REGISTY_ACK:
+                    if int(k) == Tags.MPI_REGISTY_ACK:
                         try:
                             self.wid = v['wid']
                             self.appid = v['appid']
@@ -155,7 +156,7 @@ class WorkerAgent:
                         except KeyError:
                             pass
                     # add tasks v={tid:{boot:v, args:v, data:v, resdir:v}, tid:....}
-                    elif k == Tags.TASK_ADD:
+                    elif int(k) == Tags.TASK_ADD:
                         for tk,tv in v:
                             self.task_queue.put({tk,tv})
                         if self.worker.status == WorkerStatus.IDLE:
@@ -164,13 +165,13 @@ class WorkerAgent:
                             self.cond.release()
 
                     # remove task, v=tid
-                    elif k == Tags.TASK_REMOVE:
+                    elif int(k) == Tags.TASK_REMOVE:
                         if self.worker.running_task == v:
                             self.worker.kill()
                         else:
                             self.ignoreTask.append(v)
                     # master disconnect ack,
-                    elif k == Tags.LOGOUT_ACK:
+                    elif int(k) == Tags.LOGOUT:
                         if self.worker.status != WorkerStatus.FINALIZED:
                             log.error('logout error because of wrong worker status, worker status = %d', self.worker.status)
                             # TODO do something
@@ -178,15 +179,23 @@ class WorkerAgent:
                         self.cond.notify()
                         self.cond.release()
                         # stop worker agent
-                        self.heartbeat.acquire_queue.put({Tags.LOGOUT_ACK:self.wid})
+                        #self.heartbeat.acquire_queue.put({Tags.LOGOUT_ACK:self.wid})
                         break
                     # app finalize {fin:{boot:v, args:v, data:v, resdir:v}}
-                    elif k == Tags.APP_FIN:
+                    elif int(k) == Tags.APP_FIN:
                         self.tmpLock.acquire()
                         self.tmpExecutor = v['fin']
                         self.tmpLock.release()
                         self.worker.finialized = True
-            if self.task_queue.qsize() < self.capacity:
+                        if self.worker.status == WorkerStatus.IDLE:
+                            self.cond.acquire()
+                            self.cond.notify()
+                            self.cond.release()
+                    # new app arrive, {init:{boot:v, args:v, data:v, resdir:v}, appid:v}
+                    elif int(k) == Tags.NEW_APP:
+                        # TODO new app arrive, need refresh
+                        pass
+            if self.task_queue.qsize() < self.capacity and self.worker.status == WorkerStatus.INITILAZED:
                 self.heartbeat.acquire_queue.put({Tags.TASK_ADD:self.capacity-self.task_queue.qsize()})
 
         self.worker.join()
@@ -298,17 +307,19 @@ class Worker(BaseThread):
                     tid,v = task.popitem()
                     self.do_task(v['boot'],v['args'],v['data'],v['resdir'])
                     self.workeragent.task_done(tid, self.task_status, time_start=self.start_time, time_fin=datetime.datetime.now(),errcode=self.returncode)
-
-                wlog.info('Worker: No task to do, Idle...')
-                self.status = WorkerStatus.IDLE
-                self.cond.acquire()
-                self.cond.wait()
-                self.cond.release()
+                else:
+                    wlog.info('Worker: No task to do, Idle...')
+                    self.status = WorkerStatus.IDLE
+                    self.cond.acquire()
+                    self.cond.wait()
+                    self.cond.release()
             # do finalize
+            # TODO according to Policy ,decide to force finalize or wait for all task done
             self.workeragent.tmpLock.acquire()
             self.finalize(self.workeragent.tmpExecutor['boot'], self.workeragent.tmpExecutor['args'],
                           self.workeragent.tmpExecutor['data'], self.workeragent.tmpExecutor['resdir'])
             self.workeragent.tmpLock.release()
+            self.workeragent.app_fin_done(self.returncode, status.describe(self.returncode))
 
 
             # sleep or stop
@@ -370,7 +381,8 @@ class Worker(BaseThread):
         wlog.info('Worker start to finalize...')
         if not boot and not data:
             self.finialized = True
-            self.status = WorkerStatus.INITILAZED
+            self.status = WorkerStatus.FINALIZED
+            return 0
         else:
             self.do_task(boot, args, data, resdir, flag='fin')
 
