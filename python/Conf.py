@@ -3,126 +3,122 @@ import threading
 import os
 import ConfigParser
 
-PolicyLock = threading.RLock()
-CfgLock = threading.RLock()
+GlobalLock = threading.RLock()
+_inipath = None
+
+def set_inipath(inipath):
+    try:
+        GlobalLock.acquire()
+        _inipath = inipath
+    finally:
+        GlobalLock.release()
+
+class Config(object):
+    __global_config = {
+        'health_detect_scripts': None,
+        'topDir': os.environ['DistJETROOT']
+    }
+
+    __policy = {
+        'LOST_WORKER_TIMEOUT': 60,
+        'IDLE_WORKER_TIMEOUT': 100,
+        'CONTROL_DELAY': 1,
+        'ATTEMPT_TIME': 2
+    }
+
+    __loaded = False
+
+    def __new__(cls, *args, **kwargs):
+        if not cls.__loaded:
+            if _inipath :
+                if os.path.exists(_inipath):
+                    pass
+                elif os.path.exists(os.environ['DistJETROOT']+'/'+_inipath):
+                    set_inipath(os.environ['DistJETROOT']+'/'+_inipath)
+                else:
+                    return object.__new__(cls)
+                try:
+                    GlobalLock.acquire()
+                    cf = ConfigParser.ConfigParser()
+                    cf.read(_inipath)
+                    if cf.has_section('GlobalCfg'):
+                        for key in cf.options('GlobalCfg'):
+                            cls.__global_config[key] = cf.get('Cfg', key)
+                    if cf.has_section('Policy'):
+                        for key in cf.options('Policy'):
+                            cls.__policy[key] = cf.getint('Policy', key)
+                    cls.__loaded = True
+                finally:
+                    GlobalLock.release()
+        return object.__new__(cls)
+
+    @classmethod
+    def getAttr(cls, key, type=None):
+        # FIXME: different type(globalcfg, policy) has different key
+        try:
+            GlobalLock.acquire()
+            if key in cls.__global_config.keys():
+                return cls.__global_config[key]
+            elif key in cls.__policy.keys():
+                return cls.__policy[key]
+            else:
+                return None
+        finally:
+            GlobalLock.release()
+
+    @classmethod
+    def setCfg(cls, key, val):
+        try:
+            GlobalLock.acquire()
+            cls.__global_config[key] = val
+        finally:
+            GlobalLock.release()
+
+    @classmethod
+    def setPolicy(cls, key, val):
+        try:
+            GlobalLock.acquire()
+            cls.__policy[key] = val
+        finally:
+            GlobalLock.release()
+
 
 class AppConf:
     __cfg = {
         'appid':None,
         'appName': None,
         'workDir': None,
-        'topDir': GlobalCfg.getAttr('topDir')
+        'topDir': Config.getAttr('topDir')
     }
 
-    load_flag = False
-    load_lock = threading.RLock()
 
-
-    @staticmethod
-    def loadAppCfg(cfg_path = None):
-        # FIXME: Need abs path
-        try:
-            AppConf.load_lock.acquire()
-            if cfg_path and os.path.exists(cfg_path):
+    def __init__(self, ini_path=None):
+        self.config = dict([(k, v) for (k, v) in AppConf.__cfg.items()])
+        self.lock = threading.RLock()
+        if ini_path:
+            if os.path.exists(ini_path):
+                pass
+            elif os.path.exists(os.environ['DistJETROOT']+'/'+ini_path):
+                ini_path = os.environ['DistJETROOT']+'/'+ini_path
+            else:
+                return
+            try:
+                self.lock.acquire()
                 cf = ConfigParser.ConfigParser()
-                cf.read(cfg_path)
-                if cf.has_section('AppCfg'):
-                    for key in cf.options('AppCfg'):
-                        AppConf.__cfg[key] = cf.get('AppCfg', key)
-            AppConf.load_flag = True
-        finally:
-            AppConf.load_lock.release()
+                cf.read(ini_path)
+                if cf.has_section('AppConfig'):
+                    for key in cf.options('AppConfig'):
+                        self.config[key] = cf.get('AppConfig',key)
+            finally:
+                self.lock.release()
 
-        return AppConf.__cfg
-
-    @staticmethod
-    def __getattr__(item):
+    def __getattr__(self,item):
         assert type(item) == types.StringType, "ERROR: attribute must be of String type!"
-        if AppConf.__cfg.has_key(item):
-            return AppConf.__cfg[item]
+        if self.config.has_key(item):
+            return self.config[item]
         else:
             return None
 
-    @staticmethod
-    def __setattr__(key, value):
+    def __setattr__(self,key, value):
         assert type(key) == types.StringType, "ERROR: attribute must be of String type!"
-        AppConf.__cfg[key] = value
-
-
-class GlobalCfg:
-    __config={
-        'health_detect_scripts': None,
-        'topDir': None
-    }
-
-    @staticmethod
-    def loadCfg(cfg_path=None):
-        # FIXME: Need abs path
-        if cfg_path and os.path.exists(cfg_path):
-            cf = ConfigParser.ConfigParser()
-            cf.read(cfg_path)
-            if cf.has_section('Cfg'):
-                for key in cf.options('Cfg'):
-                    GlobalCfg.__config[key] = cf.get('Cfg', key)
-        return GlobalCfg.__config
-
-    @staticmethod
-    def setAttr(name, value):
-        assert type(name) == types.StringType, "ERROR: attribute must be of String type!"
-        try:
-            CfgLock.acquire()
-            GlobalCfg.__config[name] = value
-        finally:
-            CfgLock.release()
-
-    @staticmethod
-    def getAttr(name):
-        assert type(name) == types.StringType, "ERROR: attribute must be of String type!"
-        try:
-            CfgLock.acquire()
-            if GlobalCfg.__config.has_key(name):
-                return GlobalCfg.__config[name]
-            return None
-        finally:
-            CfgLock.release()
-
-class Policy:
-    __policy={
-        'LOST_WORKER_TIMEOUT' : 60,
-        'IDLE_WORKER_TIMEOUT' : 100,
-        'CONTROL_DELAY'       : 1,
-        'ATTEMPT_TIME'        : 2
-    }
-
-    @staticmethod
-    def loadPolicy(policy_path=None):
-        # FIXME: need abs path
-        if policy_path and os.path.exists(policy_path):
-            # add parse config and set policy
-            cf = ConfigParser.ConfigParser()
-            cf.read(policy_path)
-            if cf.has_section('Policy'):
-                for key in cf.options('Policy'):
-                    Policy.__policy[key] = cf.getint('Policy',key)
-        return Policy.__policy
-
-    @staticmethod
-    def setAttr(name, value):
-        assert type(name) == types.StringType, "ERROR: attribute must be of String type!"
-        try:
-            PolicyLock.acquire()
-            Policy.__policy[name] = value
-        finally:
-            PolicyLock.release()
-
-    @staticmethod
-    def getAttr(name):
-        assert type(name) == types.StringType, "ERROR: attribute must be of String type!"
-        try:
-            PolicyLock.acquire()
-            if Policy.__policy.has_key(name):
-                return Policy.__policy[name]
-            else:
-                return 0
-        finally:
-            PolicyLock.release()
+        self.config[key] = value
