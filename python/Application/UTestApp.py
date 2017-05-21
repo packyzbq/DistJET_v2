@@ -8,7 +8,7 @@ class UnitTestApp(IApplication):
         IApplication.__init__(self)
         self.task_reslist = {}
 
-    def split(self, data=None, execdir=None, script=None):
+    def split(self):
         # setup Offline software
         # FIXME: Can not source JUNO env in this process
         rc = subprocess.Popen(['./UnitTest/run.sh','list'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -19,7 +19,13 @@ class UnitTestApp(IApplication):
         return self.data
 
 
-    def merge(self, data=None, tasklist={}):
+    def merge(self, tasklist):
+        """
+        :param data:
+        :param tasklist: {tid:task}
+        :return:
+        """
+
         for id in tasklist.keys():
             if self.analyze_log(id):
                 self.task_reslist[id] = True

@@ -20,6 +20,8 @@ class IScheduler:
         self.worker_registry = worker_registry
         self.appmgr = appmgr
         self.task_todo_queue = Queue.Queue()
+        for tid, task in self.appmgr.get_app_task_list():
+            self.task_todo_queue.put({tid,task})
         self.scheduled_task_list = {}       # wid: tid_list
         self.completed_queue = Queue.Queue()
 
@@ -64,6 +66,9 @@ class IScheduler:
         :return: bool
         """
         return not self.task_todo_queue.empty()
+
+    def has_scheduled_work(self):
+        return len(self.scheduled_task_list)!=0
 
     def task_failed(self, wid, tid, time_start, time_finish, error):
         """

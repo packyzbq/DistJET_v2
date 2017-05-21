@@ -65,14 +65,14 @@ class IApplication:
     def set_resdir(self, res_dir):
         self.res_dir = res_dir
 
-    def split(self,data, **kwd):
+    def split(self):
         """
         this method needs to be overwrite by user to split data into key-value pattern
         :return: k-v data
         """
         raise NotImplementedError
 
-    def merge(self, data, **kwd):
+    def merge(self, tasklist):
         """
         this method needs to be overwrite by user to merge the result data
         :param data: dict type

@@ -227,6 +227,8 @@ class JobMaster(IJobMaster):
                                 # TODO: Optional, add other operation
                                 master_log.error('worker %d finalize error, errmsg=%s'%(recv_dict['wid'],v['errmsg']))
 
+            if not self.task_scheduler.has_more_work() and not self.task_scheduler.has_scheduled_work():
+                self.appmgr.finalize_app()
 
             send_dict = {}
             while not self.command_q.empty():

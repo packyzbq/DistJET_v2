@@ -69,7 +69,16 @@ class Task:
 
         self.res_dir = None
 
-    def initial(self, work_script=None, args = {}, data = {}, res_dir="./"):
+    def initial(self, work_script=None, args=None, data = None, res_dir="./"):
+        """
+        :param work_script: the script path
+        :param args: {}
+        :param data: {}
+        :param res_dir:
+        :return:
+        """
+        if args is None:
+            args = {}
         self.boot = work_script
         self.res_dir = res_dir
         self.data = data

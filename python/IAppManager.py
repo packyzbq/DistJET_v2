@@ -9,14 +9,16 @@ class IAppManager:
     def __init__(self, apps):
         self.applist={}     # A list of applications  id:app
         self.current_app_id = 0
-        self.task_queue = Queue.Queue()
+        self.current_app = self.applist[0]
+        #self.task_queue = Queue.Queue() # tid:task
         self.task_list = {} # tid: task
+        self._tid = 0
         index = 0
         for app in apps:
             self.applist[index] = app
             index+=1
 
-    def create_task(self,app):
+    def create_task(self,app=None):
         """
         According to split function of app, split data and create small tasks, store them into task_queue
         :param app:
@@ -30,7 +32,7 @@ class IAppManager:
     def get_current_app(self):
         return self.applist[self.current_app_id]
 
-    def finalize_app(self):
+    def finalize_app(self,app=None):
         """
         The application operations when all tasks are finished
         :return:
@@ -44,10 +46,12 @@ class IAppManager:
         """
         raise NotImplementedError
 
-    def get_app_task_list(self):
-        if self.task_queue.empty():
-            self.create_task(self.get_current_app())
-        return self.task_queue
+    def get_app_task_list(self, app=None):
+        if not app:
+            return self.task_list
+        if len(self.task_list)==0 or app == self.current_app:
+            self.create_task(app)
+        return self.task_list
 
     def get_task(self, tid):
         return self.task_list[tid]
@@ -68,18 +72,22 @@ class IAppManager:
 
 class SimpleAppManager(IAppManager):
 
-    def create_task(self,app):
+    def create_task(self, app=None):
+        if not app:
+            app = self.applist[self.current_app_id]
         data = app.split()
         for k,v in data:
-            # todo create tasks, and store in task_queue
-            task = Task.Task()
+            # create tasks, and store in task_queue
+            task = Task.Task(self._tid)
+            self._tid+=1
             task.initial(app.app_boot, app.args, {k:v}, app.res_dir)
-            self.task_queue.put(task)
+            #self.task_queue.put(task)
             self.task_list[task.tid] = task
 
-    def finalize_app(self):
-        #TODO do merge
-        pass
+    def finalize_app(self, app=None):
+        if not app:
+            app = self.applist[self.current_app_id]
+        app.merge(self.get_app_task_list(app))
 
     def next_app(self):
         if self.current_app_id != len(self.applist)-1:
