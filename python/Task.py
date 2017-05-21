@@ -94,7 +94,7 @@ class Task:
 
     def complete(self, time_start, time_end):
         self.status = TaskStatus.COMPLETED
-        self.history[-1].complet(time_start,time_end)
+        self.history[-1].complete(time_start,time_end)
 
     def assign(self, wid):
         if not self.status is TaskStatus.INITIALIZED:

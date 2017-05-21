@@ -3,7 +3,7 @@ wRegistery_log = None
 import time
 import threading
 import traceback
-from Conf import Policy
+from Conf import Config
 
 class WorkerStatus:
     NEW = -1
@@ -18,9 +18,9 @@ class WorkerEntry:
     """
     contain worker information and task queue
     """
-    def __init__(self, wid, w_uuid, max_capacity, policy):
+    def __init__(self, wid, w_uuid, max_capacity):
         self.wid = wid
-        self.policy = policy
+        self.policy = Config()
         self.w_uuid = w_uuid
         self.registration_time =time.time()
         self.last_contact_time = self.registration_time
@@ -37,14 +37,14 @@ class WorkerEntry:
         return self.max_capacity-self.assigned
 
     def isLost(self):
-        if Policy.getAttr('LOST_WORKER_TIMEOUT'):
-            return time.time()-self.last_contact_time > Policy.getAttr('LOST_WORKER_TIMEOUT')
+        if self.policy.getPolicyattr('LOST_WORKER_TIMEOUT'):
+            return time.time()-self.last_contact_time > self.policy.getPolicyattr('LOST_WORKER_TIMEOUT')
         return False
 
     def getStatus(self):
         return self.status
     def isIdle_timeout(self):
-        return self.idle_time and self.policy.IDLE_WORKER_TIMEOUT and time.time()-self.idle_time > Policy.getAttr('IDLE_WORKER_TIMEOUT')
+        return self.idle_time and self.policy.getPolicyattr('IDLE_WORKER_TIMEOUT') and time.time()-self.idle_time > self.policy.getPolicyattr('IDLE_WORKER_TIMEOUT')
 
 class WorkerRegistry:
     def __init__(self):

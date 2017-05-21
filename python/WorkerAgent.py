@@ -121,6 +121,7 @@ class WorkerAgent:
         self.uuid = str(uuid_mod.uuid4())
         self.client = Client(self.recv_buff, svcname, self.uuid)
         self.client.initial()
+        self.cfg = Conf.Config()
 
         self.wid = None
         self.appid = None   #The running app id
@@ -244,9 +245,9 @@ class WorkerAgent:
         tmpdict = {}
         tmpdict['CpuUsage'] = HD.getCpuUsage()
         tmpdict['MemoUsage'] = HD.getMemoUsage()
-        script = self.cfg.getAttr("health_detect_scripts")
-        if script and os.path.exists(self.cfg.getAttr('topDir')+'/'+script):
-            script = self.cfg.getAttr('topDir')+'/'+script
+        script = self.cfg.getCFGattr("health_detect_scripts")
+        if script and os.path.exists(self.cfg.getCFGattr('topDir')+'/'+script):
+            script = self.cfg.getCFGattr('topDir')+'/'+script
             rc = subprocess.Popen(executable=script,stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             info, err = rc.communicate()
             if err=='':
@@ -352,7 +353,7 @@ class Worker(BaseThread):
         else:
             logFile = open('%s/app_%d_task_%d'%(resdir,self.workeragent.appid,tid), 'w+')
         while True:
-            fs = select.select([self.process.stdout],[],[],Conf.AppConf.cfg.timeout)
+            fs = select.select([self.process.stdout],[],[],Conf.Config.getCFGattr('AppRespondTimeout'))
             if not fs[0]:
                 self.task_status = status.ANR
                 self.kill()

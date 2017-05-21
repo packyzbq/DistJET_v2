@@ -16,7 +16,7 @@ def set_inipath(inipath):
 class Config(object):
     __global_config = {
         'health_detect_scripts': None,
-        'topDir': os.environ['DistJETROOT']
+        'topDir': os.environ['DistJETROOT'],
     }
 
     __policy = {
@@ -53,13 +53,20 @@ class Config(object):
         return object.__new__(cls)
 
     @classmethod
-    def getAttr(cls, key, type=None):
-        # FIXME: different type(globalcfg, policy) has different key
+    def getCFGattr(cls,key):
         try:
             GlobalLock.acquire()
-            if key in cls.__global_config.keys():
+            if cls.__global_config[key]:
                 return cls.__global_config[key]
-            elif key in cls.__policy.keys():
+            else:
+                return None
+        finally:
+            GlobalLock.release()
+    @classmethod
+    def getPolicyattr(cls,key):
+        try:
+            GlobalLock.acquire()
+            if cls.__policy[key]:
                 return cls.__policy[key]
             else:
                 return None
@@ -88,7 +95,7 @@ class AppConf:
         'appid':None,
         'appName': None,
         'workDir': None,
-        'topDir': Config.getAttr('topDir')
+        'topDir': Config.('topDir')
     }
 
 
