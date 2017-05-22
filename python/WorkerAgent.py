@@ -55,6 +55,7 @@ class HeartbeatThread(BaseThread):
         send_dict['flag'] = 'FirstPing'
         send_dict[Tags.MPI_REGISTY] = {'uuid':self.worker_agent.uuid,'capacity':self.worker_agent.capacity}
         send_dict['ctime'] = datetime.datetime.now()
+        send_dict['uuid'] = self.worker_agent.uuid
         send_str = json.dumps(send_dict)
         self._client.send_string(send_str, len(send_str),0,Tags.MPI_REGISTY)
 
@@ -74,6 +75,7 @@ class HeartbeatThread(BaseThread):
                 while not self.worker_agent.task_completed_queue.empty():
                     task = self.worker_agent.task_completed_queue.get()
                     send_dict['Task'].append(task)
+                send_dict['uuid'] = self.worker_agent.uuid
                 send_dict['wid'] = self.worker_agent.wid
                 send_dict['health'] = self.worker_agent.health_info()
                 send_dict['rTask'] = self.worker_agent.worker.running_task

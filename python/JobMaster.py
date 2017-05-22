@@ -154,7 +154,7 @@ class JobMaster(IJobMaster):
                                 self.register_worker(recv_dict['uuid'], recv_dict['capacity'])
                             else:
                                 master_log.error('firstPing msg incomplete, key=%s'%recv_dict.keys())
-                            self.command_q.put({MPI_Wrapper.Tags.APP_INI: self.appmgr.get_app_init(self.appmgr.current_app_id)})
+                            self.command_q.put({MPI_Wrapper.Tags.APP_INI: self.appmgr.get_app_init(self.appmgr.current_app_id), 'uuid':recv_dict['uuid']})
                         elif recv_dict['flag'] == 'lastPing' and msg.tag == MPI_Wrapper.Tags.MPI_DISCONNECT:
                             # last ping from worker, sync completed task, report node's health, logout and disconnect worker
                             for tid, val in recv_dict['Task']:
@@ -206,7 +206,7 @@ class JobMaster(IJobMaster):
                                     wentry.alive_lock.release()
                                 task_list = self.task_scheduler.assignTask(self.worker_registry.get_entry(recv_dict['wid']))
                                 if not task_list:
-                                    self.command_q.put({MPI_Wrapper.Tags.APP_FIN:{}})
+                                    self.command_q.put({MPI_Wrapper.Tags.APP_FIN:{},'uuid':recv_dict['uuid']})
                                 task_dict = {}
                                 for tid in task_list:
                                     task_dict[tid] = {'boot': self.appmgr.get_task(tid).boot,
@@ -215,7 +215,7 @@ class JobMaster(IJobMaster):
                                                       'resdir': self.appmgr.get_task(tid).res_dir}
                                     master_log.info('Assign task %d to worker %d'%(tid,recv_dict['wid']))
 
-                                self.command_q.put({MPI_Wrapper.Tags.TASK_ADD: task_dict})
+                                self.command_q.put({MPI_Wrapper.Tags.TASK_ADD: task_dict, 'uuid':recv_dict['uuid']})
                             # worker finalized
                             elif int(k) == MPI_Wrapper.Tags.APP_FIN:
                                 if v['recode'] == status.SUCCESS:
@@ -233,7 +233,7 @@ class JobMaster(IJobMaster):
             while not self.command_q.empty():
                 send_dict = dict(send_dict, **self.command_q.get())
             send_str = json.dumps(send_dict)
-            self.server.send_string(send_str, len(send_str), self.worker_registry.get_entry(recv_dict['wid']).w_uuid, MPI_Wrapper.Tags.MPI_PING)
+            self.server.send_string(send_str, len(send_str), send_dict['uuid'], MPI_Wrapper.Tags.MPI_PING)
 
 
 
