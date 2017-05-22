@@ -1,9 +1,9 @@
 import Queue
-import logging
+from Util import logger
 
 import Task
 
-appmgr_log = logging.getLogger('AppMgr')
+appmgr_log = logger.getLogger('AppMgr')
 
 class IAppManager:
     def __init__(self, apps):

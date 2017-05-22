@@ -8,7 +8,7 @@ import datetime, time
 import Conf
 import sys
 import traceback
-import logging
+from Util import logger
 
 import HealthDetect as HD
 import IRecv_Module as IM
@@ -18,7 +18,7 @@ from BaseThread import BaseThread
 from Task import TaskStatus
 from WorkerRegistry import WorkerStatus
 
-log = logging.getLogger('WorkerAgent')
+log = logger.getLogger('WorkerAgent')
 wlog = None
 
 def MSG_wrapper(**kwd):

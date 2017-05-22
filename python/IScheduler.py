@@ -1,14 +1,14 @@
 import json
 import Queue
 import time
-import logging
+from Util import logger
 import WorkerRegistry
 import Conf
 import Task
 from MPI_Wrapper import Tags
 from BaseThread import BaseThread
 
-scheduler_log = logging.getLogger('TaskScheduler')
+scheduler_log = logger.getLogger('TaskScheduler')
 
 def MSG_Wrapper(**kwd):
     return json.dumps(kwd)

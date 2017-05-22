@@ -1,11 +1,11 @@
 import json
 import time,datetime
 import sys
-import logging
 import Queue
+from Util import logger
 
-control_log = logging.getLogger('Control_Log')
-master_log = logging.getLogger('Master')
+control_log = logger.getLogger('Control_Log')
+master_log = logger.getLogger('Master')
 
 import IR_Buffer_Module as IM
 import IScheduler

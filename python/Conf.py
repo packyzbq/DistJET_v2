@@ -15,6 +15,7 @@ def set_inipath(inipath):
 
 class Config(object):
     __global_config = {
+        'Log_Level': 'debug',
         'health_detect_scripts': None,
         'topDir': os.environ['DistJETROOT'],
     }

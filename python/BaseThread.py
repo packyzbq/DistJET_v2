@@ -1,7 +1,7 @@
 import threading
-import logging
+from Util import logger
 
-base_thread_log = logging.getLogger("BaseThread")
+base_thread_log = logger.getLogger("BaseThread")
 
 class BaseThread(threading.Thread):
     """
