@@ -95,7 +95,7 @@ class AppConf:
         'appid':None,
         'appName': None,
         'workDir': None,
-        'topDir': Config.('topDir')
+        'topDir': Config.getCFGattr('topDir')
     }
 
 
