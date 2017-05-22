@@ -1,6 +1,7 @@
 import logging
 import os
-from python.Conf import Config
+
+from python.Util.Conf import Config
 
 loglevel={'info':logging.INFO, 'debug':logging.DEBUG}
 

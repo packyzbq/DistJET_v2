@@ -1,9 +1,11 @@
 wRegistery_log = None
 
-import time
 import threading
+import time
 import traceback
-from Conf import Config
+
+from python.Util.Conf import Config
+
 
 class WorkerStatus:
     NEW = -1

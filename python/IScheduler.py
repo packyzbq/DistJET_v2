@@ -1,12 +1,8 @@
-import json
 import Queue
-import time
-from Util import logger
+import json
+
 import WorkerRegistry
-import Conf
-import Task
-from MPI_Wrapper import Tags
-from BaseThread import BaseThread
+from Util import logger
 
 scheduler_log = logger.getLogger('TaskScheduler')
 

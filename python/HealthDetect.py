@@ -1,5 +1,3 @@
-import sys,os
-import Conf
 import time
 
 def getCpuInfo():

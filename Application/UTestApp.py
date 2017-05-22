@@ -1,4 +1,4 @@
-from IApplication import IApplication
+from python.Application.IApplication import IApplication
 import subprocess
 import os
 

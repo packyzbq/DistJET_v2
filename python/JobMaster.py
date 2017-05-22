@@ -1,7 +1,8 @@
-import json
-import time,datetime
-import sys
 import Queue
+import datetime
+import json
+import time
+
 from Util import logger
 
 control_log = logger.getLogger('Control_Log')
@@ -17,7 +18,7 @@ MPI_Wrapper.MPI_log = master_log
 from BaseThread import BaseThread
 from IAppManager import SimpleAppManager
 from Task import TaskStatus
-from Conf import Config,set_inipath
+from python.Util.Conf import Config,set_inipath
 from WorkerAgent import status
 
 
@@ -136,7 +137,8 @@ class JobMaster(IJobMaster):
         # TODO(optional) load customed AppManager
         self.appmgr = SimpleAppManager(apps=self.applications)
         #self.task_scheduler = IScheduler.SimpleScheduler(self.appmgr,self.worker_registry)
-        if self.appmgr.get_current_app().scheduler:
+        if self.appmgr.get_current_app().
+            :
             self.task_scheduler = self.appmgr.get_current_app().scheduler(self.appmgr, self.worker_registry)
         else:
             self.task_scheduler = IScheduler.SimpleScheduler(self.appmgr,self.worker_registry)

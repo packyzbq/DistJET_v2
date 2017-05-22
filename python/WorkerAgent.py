@@ -1,22 +1,21 @@
 import Queue
+import datetime
 import json
-import subprocess
 import os
 import select
+import subprocess
 import threading
-import datetime, time
-import Conf
-import sys
+import time
 import traceback
-from Util import logger
+
+import IRecv_Module as IM
 
 import HealthDetect as HD
-import IRecv_Module as IM
-from MPI_Wrapper import Tags ,Client
-
 from BaseThread import BaseThread
-from Task import TaskStatus
+from MPI_Wrapper import Tags ,Client
+from Util import logger
 from WorkerRegistry import WorkerStatus
+from python.Util import Conf
 
 log = logger.getLogger('WorkerAgent')
 wlog = None
@@ -355,7 +354,7 @@ class Worker(BaseThread):
         else:
             logFile = open('%s/app_%d_task_%d'%(resdir,self.workeragent.appid,tid), 'w+')
         while True:
-            fs = select.select([self.process.stdout],[],[],Conf.Config.getCFGattr('AppRespondTimeout'))
+            fs = select.select([self.process.stdout], [], [], Conf.Config.getCFGattr('AppRespondTimeout'))
             if not fs[0]:
                 self.task_status = status.ANR
                 self.kill()
