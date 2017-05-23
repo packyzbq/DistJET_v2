@@ -137,8 +137,7 @@ class JobMaster(IJobMaster):
         # TODO(optional) load customed AppManager
         self.appmgr = SimpleAppManager(apps=self.applications)
         #self.task_scheduler = IScheduler.SimpleScheduler(self.appmgr,self.worker_registry)
-        if self.appmgr.get_current_app().
-            :
+        if self.appmgr.get_current_app():
             self.task_scheduler = self.appmgr.get_current_app().scheduler(self.appmgr, self.worker_registry)
         else:
             self.task_scheduler = IScheduler.SimpleScheduler(self.appmgr,self.worker_registry)

@@ -15,14 +15,18 @@ parser.add_option("--back",dest="back",action="store_true",description="run on t
 
 (options,args) = parser.parse_args()
 
+parg = ''
+parg += args[0]
+
 if options.debug:
     from python.Util import logger
     logger.setlevel('debug')
 
 if options.script_file:
     if os.path.exists(options.script_file):
-        from python.Util import Conf
-        Conf._inipath = options.script_file
+        #from python.Util import Conf
+        #Conf._inipath = options.script_file
+        parg += ' %s'%options.script_file
     else:
         print('[Warning] Cannot find ini file %s, skip it'%options.script_file)
 
@@ -54,9 +58,11 @@ if options.dst:
         if not os.path.exists(app_file):
             print('[Error] Cannot find app script:%s, exit'%app_file)
             sys.exit(1)
-    print("mpiexec python $DistJET/bin/master.py %s" % (app_file))
+    print("mpiexec python $DistJET/bin/master.py %s" %parg)
     if options.back:
-        os.system("mpiexec python $DistJETPATH/bin/master.py %s &" % (app_file))
+        os.system("mpiexec python $DistJETPATH/bin/master.py %s &" %parg)
+    else:
+        os.system("mpiexec python $DistJETPATH/bin/master.py %s" %parg)
 
 # run on HTCondor
 else:

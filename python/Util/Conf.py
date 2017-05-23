@@ -9,6 +9,7 @@ _inipath = None
 def set_inipath(inipath):
     try:
         GlobalLock.acquire()
+        global _inipath
         _inipath = inipath
     finally:
         GlobalLock.release()
@@ -30,6 +31,7 @@ class Config(object):
     __loaded = False
 
     def __new__(cls, *args, **kwargs):
+        global _inipath
         if not cls.__loaded:
             if _inipath :
                 if os.path.exists(_inipath):
