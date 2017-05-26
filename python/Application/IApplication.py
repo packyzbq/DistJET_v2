@@ -3,6 +3,7 @@ import subprocess
 import types
 
 from python import IScheduler
+from IAPPWorker import IAPPWorker
 
 
 class IApplication:
@@ -19,14 +20,22 @@ class IApplication:
         self.app_fin_extra = {}
 
         self.scheduler = None
+        self.specifiedWorker = None
 
     def set_scheduler(self, scheduler):
         if not callable(scheduler) or not issubclass(scheduler,IScheduler):
             # TODO unrecognized scheduler
-            print('Scheduler %s can not be recognized')
+            print('Scheduler %s can not be recognized'%scheduler)
             return
         else:
             self.scheduler = scheduler
+
+    def set_worker(self, worker):
+        if not callable(worker) or not issubclass(worker, IAPPWorker):
+            print('Costumed Worker %s can not be recognized, use default worker'%worker)
+            return
+        else:
+            self.specifiedWorker = worker
 
     def get_scheduler(self):
         return self.scheduler

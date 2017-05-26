@@ -1,8 +1,8 @@
-
+import python.Util.logger as logger
 
 class IAPPWorker:
     def __init__(self):
-        pass
+        self.log = logger.getLogger(self.__class__.__name__)
 
     def initialize(self,**kwargs):
         raise NotImplementedError
@@ -15,4 +15,6 @@ class IAPPWorker:
 
 
 class TestWorker(IAPPWorker):
-    
+
+    def initialize(self):
+        pass
