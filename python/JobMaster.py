@@ -2,6 +2,7 @@ import Queue
 import datetime
 import json
 import time
+import os
 
 from Util import logger
 
@@ -78,10 +79,9 @@ class IJobMaster:
 class JobMaster(IJobMaster):
     def __init__(self, cfg_path = None, applications=None):
         if not cfg_path:
-            #TODO use default path
-            pass
-        else:
-            set_inipath(cfg_path)
+            #use default path
+            cfg_path = os.getenv('DistJETPATH')+'/config/default.cfg'
+        set_inipath(cfg_path)
         self.cfg = Config()
         self.svc_name = self.cfg.getCFGattr('svc_name')
         if not self.svc_name:

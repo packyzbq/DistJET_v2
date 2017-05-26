@@ -5,6 +5,7 @@ import os
 import select
 import subprocess
 import threading
+import multiprocessing
 import time
 import traceback
 
@@ -111,16 +112,22 @@ class HeartbeatThread(BaseThread):
     def set_ping_duration(self, interval):
         self.interval = interval
 
-class WorkerAgent:
+class WorkerAgent(multiprocessing.Process):
     """
     agent
     """
-    def __init__(self,svcname, capacity=1):
+    def __init__(self,cfg_path=None, capacity=1):
+        multiprocessing.Process.__init__(self)
+        if not cfg_path:
+            #use default path
+            cfg_path = os.getenv('DistJETPATH')+'/config/default.cfg'
+        Conf.set_inipath(cfg_path)
+
         self.recv_buff = IM.IRecv_buffer()
         self.__should_stop_flag = False
         import uuid as uuid_mod
         self.uuid = str(uuid_mod.uuid4())
-        self.client = Client(self.recv_buff, svcname, self.uuid)
+        self.client = Client(self.recv_buff, Conf.Config.getCFGattr('svc_name'), self.uuid)
         self.client.initial()
         self.cfg = Conf.Config()
 
