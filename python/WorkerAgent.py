@@ -259,7 +259,8 @@ class WorkerAgent:
         return tmpdict
 
 
-
+# FIXME: worker initial in one process, cannot run task in other process. Should make init/run/finalize in the same process
+# Load customed worker class  or  make the task script include init-do-fin steps
 class Worker(BaseThread):
     def __init__(self, workagent, cond):
         BaseThread.__init__(self,"worker")
@@ -333,7 +334,7 @@ class Worker(BaseThread):
 
 
 
-    def initialize(self, boot, args, data, resdir):
+    def initialize(self, boot, args, data, resdir, **kwargs):
         wlog.info('Worker start to initialize...')
         if not boot and not data:
             self.initialized = True
