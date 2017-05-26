@@ -262,7 +262,7 @@ class WorkerAgent:
 # FIXME: worker initial in one process, cannot run task in other process. Should make init/run/finalize in the same process
 # Load customed worker class  or  make the task script include init-do-fin steps
 class Worker(BaseThread):
-    def __init__(self, workagent, cond):
+    def __init__(self, workagent, cond, worker_class=None):
         BaseThread.__init__(self,"worker")
         self.workeragent = workagent
         self.running_task = None
@@ -270,8 +270,12 @@ class Worker(BaseThread):
         self.initialized = False
         self.finialized = False
         self.status = WorkerStatus.NEW
-
         self.log = wlog
+
+        self.worker_obj = None
+        if worker_class:
+            self.worker_obj = worker_class(self.log)
+
         self.stdout = self.stderr = subprocess.PIPE
         self.process = None
         self.pid = None
@@ -336,7 +340,13 @@ class Worker(BaseThread):
 
     def initialize(self, boot, args, data, resdir, **kwargs):
         wlog.info('Worker start to initialize...')
-        if not boot and not data:
+        if self.worker_obj:
+            if self.worker_obj.initialize(boot=boot, args=args,data=data,resdir=resdir):
+                self.initialized = True
+                self.status = WorkerStatus.INITILAZED
+            else:
+                wlog.error('Error: error occurs when initializing worker')
+        elif not boot and not data:
             self.initialized = True
             self.status = WorkerStatus.INITILAZED
         else:
@@ -354,25 +364,28 @@ class Worker(BaseThread):
             logFile = open('%s/%s_log'%(resdir,kwd['flag']),'w+')
         else:
             logFile = open('%s/app_%d_task_%d'%(resdir,self.workeragent.appid,tid), 'w+')
-        while True:
-            fs = select.select([self.process.stdout], [], [], Conf.Config.getCFGattr('AppRespondTimeout'))
-            if not fs[0]:
-                self.task_status = status.ANR
-                self.kill()
-                break
-            if self.process.stdout in fs[0]:
-                record = os.read(self.process.stdout.fileno(),1024)
-                if not record:
+        if self.worker_obj:
+            self.returncode = self.worker_obj.do_work(boot=boot, args=args, data=data, resdir=resdir, logfile=logFile)
+        else:
+            while True:
+                fs = select.select([self.process.stdout], [], [], Conf.Config.getCFGattr('AppRespondTimeout'))
+                if not fs[0]:
+                    self.task_status = status.ANR
+                    self.kill()
                     break
-                logFile.write(record)
-                if self.logParser:
-                    if not self._parseLog(record):
-                        self.task_status = status.FAIL
-                        self.kill()
+                if self.process.stdout in fs[0]:
+                    record = os.read(self.process.stdout.fileno(),1024)
+                    if not record:
                         break
-                if not self._checkLimit():
-                    break
-        self.returncode = self.process.wait()
+                    logFile.write(record)
+                    if self.logParser:
+                        if not self._parseLog(record):
+                            self.task_status = status.FAIL
+                            self.kill()
+                            break
+                    if not self._checkLimit():
+                        break
+            self.returncode = self.process.wait()
         if self.status:
             return
         if 0 == self.returncode:
@@ -382,7 +395,13 @@ class Worker(BaseThread):
 
     def finalize(self, boot, args, data, resdir):
         wlog.info('Worker start to finalize...')
-        if not boot and not data:
+        if self.worker_obj:
+            if self.worker_obj.finalize(boot=boot, args=args,data=data,resdir=resdir):
+                self.finialized = True
+                self.status = WorkerStatus.FINALIZED
+            else:
+                wlog.error("Error occurs when worker finalizing")
+        elif not boot and not data:
             self.finialized = True
             self.status = WorkerStatus.FINALIZED
             return 0
