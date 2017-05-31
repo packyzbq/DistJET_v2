@@ -1,6 +1,18 @@
 import os,sys
-import re
+import subprocess
 import traceback
+
+# check boost.python if exist or if JUNO offline software has been sourced
+if not os.getenv('JUNOTOP'):
+    print 'Please setup JUNO official software first!'
+    exit()
+    
+if 'Boost' not in os.environ['PATH']:
+    print("can't find Boost.Python, setup Boost")
+    rc = subprocess.Popen(['source', '/afs/ihep.ac.cn/users/z/zhaobq/env'])
+else:
+    print('SETUP: find Boost')
+
 
 # argv[1] = appfile, argv[2]=config, argv[3]=log_level
 if len(sys.argv) < 3:

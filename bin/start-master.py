@@ -39,11 +39,6 @@ if options.dst:
         print("can't find mpich tool, please setup mpich2 first")
         exit()
 
-    if 'Boost' not in os.environ['PATH']:
-        print("can't find Boost.Python, setup Boost")
-        rc = subprocess.Popen(['source', '/afs/ihep.ac.cn/users/z/zhaobq/env'])
-    else:
-        print('SETUP: find Boost')
 
     rc = subprocess.Popen(['mpdtrace'], stdout=subprocess.PIPE)
     stdout = rc.communicate()[0]
