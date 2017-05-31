@@ -29,8 +29,13 @@ if options.script_file:
 else:
     parg+=' null'
 
+if options.debug:
+    parg += ' DEBUG'
+else:
+    parg += ' INFO'
+
 # run on local node
-if options.dst:
+if not options.dst:
     # check runtime env
     try:
         rc = subprocess.Popen(["mpich2version"], stdout=subprocess.PIPE)

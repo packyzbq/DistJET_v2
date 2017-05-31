@@ -4,12 +4,15 @@ import traceback
 
 # check boost.python if exist or if JUNO offline software has been sourced
 if not os.getenv('JUNOTOP'):
-    print 'Please setup JUNO official software first!'
-    exit()
+#    print 'Please setup JUNO official software first!'
+#    exit()
+    print 'No Env of Juno offline software detected'
     
 if 'Boost' not in os.environ['PATH']:
-    print("can't find Boost.Python, setup Boost")
-    rc = subprocess.Popen(['source', '/afs/ihep.ac.cn/users/z/zhaobq/env'])
+    print("can't find Boost.Python, please setup Boost.Python first")
+    exit()
+    #rc = subprocess.Popen(['source', '/afs/ihep.ac.cn/users/z/zhaobq/env'])
+	# this the python copy of the Boost/bashrc
 else:
     print('SETUP: find Boost')
 
