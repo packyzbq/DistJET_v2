@@ -6,12 +6,12 @@ import re
 if 'DistJETPATH' not in os.environ:
     os.environ['DistJETPATH'] = "/afs/ihep.ac.cn/users/z/zhaobq/workerSpace/DistJET_v2"
 
-parser = OptionParser(usage="%prog AppFile [opts] --ini <file>", description="start the master on local/HTCondor with config file")
+parser = OptionParser(usage="%prog AppFile [opts] --ini <file>", help="start the master on local/HTCondor with config file")
 parser.add_option("--condor", dest="dst",action="store_true")
 parser.add_option("--local", dest="dst", action="store_false")
 parser.add_option("--debug", dest="debug",action="store_true")
 parser.add_option("--ini",dest="script_file")
-parser.add_option("--back",dest="back",action="store_true",description="run on the back")
+parser.add_option("--back",dest="back",action="store_true",help="run on the back")
 
 (options,args) = parser.parse_args()
 
