@@ -2,7 +2,7 @@ import os,sys
 import re
 import traceback
 
-# argv[1] = appfile, argv[2]=config
+# argv[1] = appfile, argv[2]=config, argv[3]=log_level
 if len(sys.argv) < 3:
     print('@master need at least 2 parameter(given %d), exit'%(len(sys.argv)-1))
     exit()
@@ -34,7 +34,10 @@ else:
     print('@master: No callable function "run" in app module, exit')
     exit()
 
-master = JobMaster(sys.argv[2],applications)
+if sys.argv[2] == 'null':
+    master = JobMaster(applications=applications)
+else:
+    master = JobMaster(sys.argv[2],applications)
 print('@master start running')
 master.startProcessing()
 
