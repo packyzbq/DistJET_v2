@@ -18,9 +18,6 @@ parser.add_option("--back",dest="back",action="store_true",help="run on the back
 parg = ''
 parg += args[0]
 
-if options.debug:
-    from python.Util import logger
-    logger.setlevel('debug')
 
 if options.script_file:
     if os.path.exists(options.script_file):
@@ -29,6 +26,8 @@ if options.script_file:
         parg += ' %s'%options.script_file
     else:
         print('[Warning] Cannot find ini file %s, skip it'%options.script_file)
+else:
+    parg+=' null'
 
 # run on local node
 if options.dst:
