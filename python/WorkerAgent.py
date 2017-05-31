@@ -9,7 +9,7 @@ import multiprocessing
 import time
 import traceback
 
-import IRecv_Module as IM
+import IR_Buffer_Module as IM
 
 import HealthDetect as HD
 from BaseThread import BaseThread

@@ -23,7 +23,7 @@ class IApplication:
         self.specifiedWorker = None
 
     def set_scheduler(self, scheduler):
-        if not callable(scheduler) or not issubclass(scheduler,IScheduler):
+        if not callable(scheduler) or not issubclass(scheduler,IScheduler.IScheduler):
             # TODO unrecognized scheduler
             print('Scheduler %s can not be recognized'%scheduler)
             return

@@ -122,7 +122,7 @@ class JobMaster(IJobMaster):
         if not worker:
             master_log.warning('[Master] The uuid=%s of worker has already registered', w_uuid)
         else:
-            send_str = MSG_wrapper(wid=worker.wid,appid=self.task_scheduler.appid, init={self.task_scheduler.init_worker})
+            send_str = MSG_wrapper(wid=worker.wid,appid=self.task_scheduler.appid, init=self.task_scheduler.init_worker)
             self.server.send_string(send_str, len(send_str), w_uuid, MPI_Wrapper.Tags.MPI_REGISTY_ACK)
 
     def remove_worker(self,wid):
@@ -241,11 +241,11 @@ class JobMaster(IJobMaster):
 
     def check_msg_integrity(self, tag, msg):
         if tag == 'Task':
-            return {'task_stat', 'time_start', 'time_fin', 'errcode'}.issubset(set(msg.keys()))
+            return set(['task_stat', 'time_start', 'time_fin', 'errcode']).issubset(set(msg.keys()))
         elif tag == 'firstPing':
-            return {'uuid', 'capacity'}.issubset(set(msg.keys()))
+            return set(['uuid', 'capacity']).issubset(set(msg.keys()))
         elif tag == 'health':
-            return {'CpuUsage','MemoUsage'}.issubset(set(msg.keys()))
+            return set(['CpuUsage','MemoUsage']).issubset(set(msg.keys()))
 
 
 
