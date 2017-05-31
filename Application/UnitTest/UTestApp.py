@@ -49,3 +49,7 @@ class UnitTestApp(IApplication):
                             return True
                         else:
                             return False
+
+
+if __name__ == '__main__':
+    app = UnitTestApp()
