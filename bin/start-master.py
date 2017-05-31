@@ -5,6 +5,7 @@ import re
 
 if 'DistJETPATH' not in os.environ:
     os.environ['DistJETPATH'] = "/afs/ihep.ac.cn/users/z/zhaobq/workerSpace/DistJET_v2"
+sys.path.append(os.environ['DistJETPATH'])
 
 parser = OptionParser(usage="%prog AppFile [opts] --ini <file>",description="start the master on local/HTCondor with config file")
 parser.add_option("--condor", dest="dst",action="store_true")
@@ -30,9 +31,9 @@ else:
     parg+=' null'
 
 if options.debug:
-    parg += ' DEBUG'
+    parg += ' debug'
 else:
-    parg += ' INFO'
+    parg += ' info'
 
 # run on local node
 if not options.dst:

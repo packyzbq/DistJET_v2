@@ -40,6 +40,9 @@ except ImportError:
     print('@master: import user define module error, exit=%s'%traceback.format_exc())
     exit()
 
+import python.Util.logger as logger
+logger.setlevel(sys.argv[3])
+
 from python.JobMaster import JobMaster
 applications = []
 
