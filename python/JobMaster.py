@@ -233,8 +233,9 @@ class JobMaster(IJobMaster):
             send_dict = {}
             while not self.command_q.empty():
                 send_dict = dict(send_dict, **self.command_q.get())
-            send_str = json.dumps(send_dict)
-            self.server.send_string(send_str, len(send_str), send_dict['uuid'], MPI_Wrapper.Tags.MPI_PING)
+            if len(send_dict) != 0:
+                send_str = json.dumps(send_dict)
+                self.server.send_string(send_str, len(send_str), send_dict['uuid'], MPI_Wrapper.Tags.MPI_PING)
 
 
 

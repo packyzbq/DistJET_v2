@@ -8,8 +8,6 @@ appmgr_log = logger.getLogger('AppMgr')
 class IAppManager:
     def __init__(self, apps):
         self.applist={}     # A list of applications  id:app
-        self.current_app_id = 0
-        self.current_app = self.applist[0]
         #self.task_queue = Queue.Queue() # tid:task
         self.task_list = {} # tid: task
         self.__tid = 0
@@ -17,7 +15,8 @@ class IAppManager:
         for app in apps:
             self.applist[index] = app
             index+=1
-
+        self.current_app = self.applist[0]
+        self.current_app_id = 0
     def create_task(self,app=None):
         """
         According to split function of app, split data and create small tasks, store them into task_queue
