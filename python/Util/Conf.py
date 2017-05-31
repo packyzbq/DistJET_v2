@@ -18,7 +18,8 @@ class Config(object):
     __global_config = {
         'Log_Level': 'debug',
         'health_detect_scripts': None,
-        'topDir': os.environ['DistJETROOT'],
+        'topDir': os.environ['DistJETPATH'],
+        'Rundir': None
     }
 
     __policy = {
@@ -36,8 +37,8 @@ class Config(object):
             if _inipath :
                 if os.path.exists(_inipath):
                     pass
-                elif os.path.exists(os.environ['DistJETROOT']+'/'+_inipath):
-                    set_inipath(os.environ['DistJETROOT']+'/'+_inipath)
+                elif os.path.exists(os.environ['DistJETPATH']+'/'+_inipath):
+                    set_inipath(os.environ['DistJETPATH']+'/'+_inipath)
                 else:
                     return object.__new__(cls)
                 try:
@@ -59,7 +60,7 @@ class Config(object):
     def getCFGattr(cls,key):
         try:
             GlobalLock.acquire()
-            if cls.__global_config[key]:
+            if key in cls.__global_config.keys():
                 return cls.__global_config[key]
             else:
                 return None
@@ -69,7 +70,7 @@ class Config(object):
     def getPolicyattr(cls,key):
         try:
             GlobalLock.acquire()
-            if cls.__policy[key]:
+            if key in cls.__policy.keys():
                 return cls.__policy[key]
             else:
                 return None
@@ -108,8 +109,8 @@ class AppConf:
         if ini_path:
             if os.path.exists(ini_path):
                 pass
-            elif os.path.exists(os.environ['DistJETROOT']+'/'+ini_path):
-                ini_path = os.environ['DistJETROOT']+'/'+ini_path
+            elif os.path.exists(os.environ['DistJETPATH']+'/'+ini_path):
+                ini_path = os.environ['DistJETPATH']+'/'+ini_path
             else:
                 return
             try:

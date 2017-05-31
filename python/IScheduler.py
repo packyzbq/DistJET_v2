@@ -17,7 +17,7 @@ class IScheduler:
         self.appmgr = appmgr
         self.task_todo_queue = Queue.Queue()
         for tid, task in self.appmgr.get_app_task_list():
-            self.task_todo_queue.put({tid,task})
+            self.task_todo_queue.put({tid:task})
         self.scheduled_task_list = {}       # wid: tid_list
         self.completed_queue = Queue.Queue()
 

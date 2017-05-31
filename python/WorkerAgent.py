@@ -167,7 +167,7 @@ class WorkerAgent(multiprocessing.Process):
                     # add tasks v={tid:{boot:v, args:v, data:v, resdir:v}, tid:....}
                     elif int(k) == Tags.TASK_ADD:
                         for tk,tv in v:
-                            self.task_queue.put({tk,tv})
+                            self.task_queue.put({tk:tv})
                         if self.worker.status == WorkerStatus.IDLE:
                             self.cond.acquire()
                             self.cond.notify()

@@ -13,7 +13,7 @@ def getLogger(name, level=None):
         if not level:
             level = 'info'
     if not log_dir:
-        log_dir = Config.getCFGattr('topdir')+'/log'
+        log_dir = Config.getCFGattr('Rundir')+'/log'
     if not os.path.exists(log_dir):
         os.mkdir(log_dir)
 

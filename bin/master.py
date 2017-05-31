@@ -1,7 +1,7 @@
 import os,sys
 import subprocess
 import traceback
-
+sys.path.append(os.getenv('DistJETPATH'))
 # check boost.python if exist or if JUNO offline software has been sourced
 if not os.getenv('JUNOTOP'):
 #    print 'Please setup JUNO official software first!'
@@ -22,10 +22,9 @@ if len(sys.argv) < 3:
     print('@master need at least 2 parameter(given %d), exit'%(len(sys.argv)-1))
     exit()
 
-svc_name = None
-
 if os.path.exists(sys.argv[1]):
     module_path = os.path.dirname(sys.argv[1])
+    module_path = os.path.abspath(module_path)
     sys.path.append(module_path)
     module_name = os.path.basename(sys.argv[1])
     if module_name.endswith('.py'):
@@ -33,6 +32,10 @@ if os.path.exists(sys.argv[1]):
 
 else:
     print('@master: cannot find app module %s, exit'%sys.argv[1])
+
+rundir = os.getcwd()
+from python.Util.Conf import Config
+Config.setCfg('Rundir',rundir)
 
 try:
     module = __import__(module_name)
