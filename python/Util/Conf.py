@@ -3,6 +3,7 @@ import threading
 import os
 import ConfigParser
 
+#os.environ['DistJETPATH'] = "/afs/ihep.ac.cn/users/z/zhaobq/workerSpace/DistJET_v2"
 GlobalLock = threading.RLock()
 _inipath = None
 
@@ -47,7 +48,7 @@ class Config(object):
                     cf.read(_inipath)
                     if cf.has_section('GlobalCfg'):
                         for key in cf.options('GlobalCfg'):
-                            cls.__global_config[key] = cf.get('Cfg', key)
+                            cls.__global_config[key] = cf.get('GlobalCfg', key)
                     if cf.has_section('Policy'):
                         for key in cf.options('Policy'):
                             cls.__policy[key] = cf.getint('Policy', key)
@@ -92,6 +93,10 @@ class Config(object):
             cls.__policy[key] = val
         finally:
             GlobalLock.release()
+	
+    @classmethod
+    def isload(cls):
+        return cls.__loaded
 
 
 class AppConf:
@@ -133,3 +138,10 @@ class AppConf:
     def __setattr__(self,key, value):
         assert type(key) == types.StringType, "ERROR: attribute must be of String type!"
         self.config[key] = value
+
+if __name__ == '__main__':
+    set_inipath('/afs/ihep.ac.cn/users/z/zhaobq/workerSpace/DistJET_v2/config/default.cfg')
+    config = Config()
+    if config.__class__.isload():
+        print 'config file loaded'
+    print config.__class__.getCFGattr('svc_name')

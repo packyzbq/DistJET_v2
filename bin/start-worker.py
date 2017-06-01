@@ -70,8 +70,8 @@ else:
     parg+= ' '+opts.conf_file
 
 # this is the plan A-> each workerAgent has one worker
-print('mpiexec -n %d python $DistJETPATH/bin/worker.py %s'%(opts.worker_num,parg))
-os.system("mpiexec -n %d python $DistJETPATH/bin/worker.py %s"%(opts.worker_num,parg))
+print('mpiexec -n %s python $DistJETPATH/bin/worker.py %s'%(opts.worker_num,parg))
+os.system("mpiexec -n %s python $DistJETPATH/bin/worker.py %s"%(opts.worker_num,parg))
 
 
 

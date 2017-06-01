@@ -24,7 +24,13 @@ def getCpuUsage():
     info2 = getCpuInfo()
     tmpdict = {}
     for k in info1.keys():
-        usage = 100-(int(info2[k]['idle'])-int(info1[k]['idle'])*100)/(long(info2[k]['total'])-long(info1[k]['total']))
+        idle = float(info2[k]['idle'])-float(info1[k]['idle'])
+        total = float(info2[k]['total'])-float(info1[k]['total'])
+        if total == 0.0:
+            usage = 0.0
+        else:
+            usage = 100-(idle*100/total)
+        #usage = 100-(int(info2[k]['idle'])-int(info1[k]['idle'])*100)/(long(info2[k]['total'])-long(info1[k]['total']))
         tmpdict[k] = usage
     return tmpdict
 

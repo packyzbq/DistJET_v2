@@ -64,7 +64,7 @@ class HeartbeatThread(BaseThread):
             try:
                 self.queue_lock.acquire()
                 send_dict.clear()
-                send_dict = dict(send_dict, **self.worker_agent.health_info)
+                send_dict = dict(send_dict, **self.worker_agent.health_info())
                 while not self.acquire_queue.empty():
                     tmp_d = self.acquire_queue.get()
                     if send_dict.has_key(tmp_d.keys()[0]):
@@ -85,6 +85,7 @@ class HeartbeatThread(BaseThread):
                 self._client.send_string(send_str, len(send_str), 0, Tags.MPI_PING)
             except Exception:
                 wlog.error('[HeartBeatThread]: unkown error, thread stop. msg=%s', traceback.format_exc())
+                break
             else:
                 time.sleep(self.interval)
 
@@ -119,7 +120,7 @@ class WorkerAgent(multiprocessing.Process):
     """
     def __init__(self,cfg_path=None, capacity=1):
         multiprocessing.Process.__init__(self)
-        if not cfg_path:
+        if not cfg_path or cfg_path=='null':
             #use default path
             cfg_path = os.getenv('DistJETPATH')+'/config/default.cfg'
         Conf.set_inipath(cfg_path)
@@ -129,10 +130,14 @@ class WorkerAgent(multiprocessing.Process):
         import uuid as uuid_mod
         self.uuid = str(uuid_mod.uuid4())
         wlog = logger.getLogger('Worker_%s'%self.uuid)
-        self.client = Client(self.recv_buff, Conf.Config.getCFGattr('svc_name'), self.uuid)
+        Conf.Config()
+        self.cfg = Conf.Config
+        if self.cfg.isload():
+            wlog.debug('[Worker] Loaded config file %s'%cfg_path)
+        wlog.debug('[Worker] Start to connect to service <%s>'%self.cfg.getCFGattr('svc_name'))
+        self.client = Client(self.recv_buff, self.cfg.getCFGattr('svc_name'), self.uuid)
         self.client.initial()
-        self.cfg = Conf.Config()
-
+        
         self.wid = None
         self.appid = None   #The running app id
         self.capacity = capacity
