@@ -28,11 +28,6 @@ except:
     print("can't find mpich tool, please setup mpich2 first")
     exit()
 
-if 'Boost' not in os.environ['PATH']:
-    print("can't find Boost.Python, setup Boost")
-    subprocess.Popen(['source', '/afs/ihep.ac.cn/users/z/zhaobq/env'])
-else:
-    print('SETUP: find Boost')
 
 # check mpd running
 rc = subprocess.Popen(['mpdtrace'], stdout=subprocess.PIPE)
@@ -66,6 +61,7 @@ if opts.capacity:
 
 if not opts.conf_file or not os.path.exists(opts.conf_file):
     print 'No config file input, use default configuration'
+    parg+=' null'
 else:
     parg+= ' '+opts.conf_file
 
