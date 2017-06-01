@@ -103,7 +103,11 @@ class JobMaster(IJobMaster):
         self.__wid = 1
 
         self.server = MPI_Wrapper.Server(self.recv_buffer,self.svc_name)
-        self.server.initialize()
+        ret = self.server.initialize()
+        if ret != 0:
+            master_log.error('[Master] Server initialize error, stop. errcode = %d'%ret)
+            # TODO add error handler
+            exit()
 
         self.__stop = False
 
@@ -113,8 +117,12 @@ class JobMaster(IJobMaster):
         self.control_thread.stop()
         self.control_thread.join()
         master_log.info('[Master] Control Thread has joined')
-        self.server.stop()
-        master_log.info('[Master] Server stop')
+        ret = self.server.stop()
+        if ret != 0:
+            master_log.error('[Master] Server stop error, errcode = %d'%ret)
+            # TODO add solution
+        else:
+            master_log.info('[Master] Server stop')
         self.__stop = True
 
     def register_worker(self, w_uuid, capacity = 1):

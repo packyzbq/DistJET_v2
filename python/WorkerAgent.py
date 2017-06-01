@@ -58,7 +58,10 @@ class HeartbeatThread(BaseThread):
         send_dict['ctime'] = time.time()
         send_dict['uuid'] = self.worker_agent.uuid
         send_str = json.dumps(send_dict)
-        self._client.send_string(send_str, len(send_str),0,Tags.MPI_REGISTY)
+        ret = self._client.send_string(send_str, len(send_str),0,Tags.MPI_REGISTY)
+        if ret != 0:
+            #TODO send error,add handler
+            pass
 
         while not self.get_stop_flag():
             try:
@@ -82,7 +85,10 @@ class HeartbeatThread(BaseThread):
                 send_dict['rTask'] = self.worker_agent.worker.running_task
                 send_dict['ctime'] = time.time()
                 send_str = json.dumps(send_dict)
-                self._client.send_string(send_str, len(send_str), 0, Tags.MPI_PING)
+                ret = self._client.send_string(send_str, len(send_str), 0, Tags.MPI_PING)
+                if ret != 0:
+                    #TODO add send error handler
+                    pass
             except Exception:
                 wlog.error('[HeartBeatThread]: unkown error, thread stop. msg=%s', traceback.format_exc())
                 break
@@ -107,7 +113,10 @@ class HeartbeatThread(BaseThread):
         send_dict['health'] = self.worker_agent.health_info()
         send_dict['ctime'] = time.time()
         send_str = json.dumps(send_dict)
-        self._client.send_string(send_str, len(send_str), 0, Tags.MPI_DISCONNECT)
+        ret = self._client.send_string(send_str, len(send_str), 0, Tags.MPI_DISCONNECT)
+        if ret != 0:
+            #TODO add send error handler
+            pass
 
 
 
@@ -136,7 +145,12 @@ class WorkerAgent(multiprocessing.Process):
             wlog.debug('[Worker] Loaded config file %s'%cfg_path)
         wlog.debug('[Worker] Start to connect to service <%s>'%self.cfg.getCFGattr('svc_name'))
         self.client = Client(self.recv_buff, self.cfg.getCFGattr('svc_name'), self.uuid)
-        self.client.initial()
+        ret = self.client.initial()
+        if ret != 0:
+            #TODO client initial error, add handler
+            wlog.error('[Worker] Client initialize error, errcode = %d'%ret)
+            exit()
+
         
         self.wid = None
         self.appid = None   #The running app id
@@ -224,7 +238,10 @@ class WorkerAgent(multiprocessing.Process):
         if self.heartbeat:
             self.heartbeat.stop()
             self.heartbeat.join()
-        self.client.stop()
+        ret = self.client.stop()
+        if ret != 0:
+            wlog.error('[WorkerAgent] Client stop error, errcode = %d'%ret)
+            # TODO add solution
 
     def task_done(self, tid, task_stat,**kwd):
         tmp_dict = dict({'task_stat':task_stat},**kwd)
