@@ -52,7 +52,8 @@ class Server:
         self.server.send_int(int_data, msgsize, dest, tags)
 
     def send_string(self, str ,msgsize, dest, tag):
-        self.server.send_string(str, msgsize, dest, tag)
+        ret = self.server.send_string(str, msgsize, dest, tag)
+        return ret
 
     def run(self):
         self.server.run()
@@ -61,7 +62,8 @@ class Server:
         pass
 
     def stop(self):
-        self.server.stop()
+        ret = self.server.stop()
+        return ret
 
 class Client:
     """
@@ -75,7 +77,7 @@ class Client:
         self.send_string(uuid, len(uuid), 0, Tags.MPI_PING)
 
     def initial(self):
-        self.client.initialize()
+        return self.client.initialize()
 
     def run(self):
         self.client.run()
@@ -85,10 +87,10 @@ class Client:
         self.client.send_int(int_data, msgsize, dest, tags)
 
     def send_string(self, str ,msgsize, dest, tags):
-        self.client.send_string(str, msgsize, dest, tags)
+        return self.client.send_string(str, msgsize, dest, tags)
 
     def stop(self):
-        self.client.stop()
+        return self.client.stop()
 
 class MSG:
     def __init__(self, tag, pack):

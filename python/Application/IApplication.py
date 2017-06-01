@@ -72,7 +72,9 @@ class IApplication:
         else:
             self.app_boot.append(boot_list)
     def set_resdir(self, res_dir):
-        self.res_dir = res_dir
+        self.res_dir = os.path.abspath(res_dir)
+        if not os.path.exists(self.res_dir):
+            os.mkdir(self.res_dir)
 
     def split(self):
         """

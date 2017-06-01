@@ -107,7 +107,7 @@ class JobMaster(IJobMaster):
         if ret != 0:
             master_log.error('[Master] Server initialize error, stop. errcode = %d'%ret)
             # TODO add error handler
-            exit()
+            #exit()
 
         self.__stop = False
 

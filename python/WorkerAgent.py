@@ -149,7 +149,7 @@ class WorkerAgent(multiprocessing.Process):
         if ret != 0:
             #TODO client initial error, add handler
             wlog.error('[Worker] Client initialize error, errcode = %d'%ret)
-            exit()
+            #exit()
 
         
         self.wid = None
