@@ -130,7 +130,7 @@ class JobMaster(IJobMaster):
         if not worker:
             master_log.warning('[Master] The uuid=%s of worker has already registered', w_uuid)
         else:
-            send_str = MSG_wrapper(wid=worker.wid,appid=self.task_scheduler.appid, init=self.task_scheduler.init_worker)
+            send_str = MSG_wrapper(wid=worker.wid,appid=self.task_scheduler.appid, init=self.task_scheduler.init_worker())
             self.server.send_string(send_str, len(send_str), w_uuid, MPI_Wrapper.Tags.MPI_REGISTY_ACK)
 
     def remove_worker(self,wid):
@@ -153,6 +153,7 @@ class JobMaster(IJobMaster):
             if not self.recv_buffer.empty():
                 msg = self.recv_buffer.get()
                 if msg.tag != -1:
+                    master_log.debug('[Master] Receive msg = %s' % msg.sbuf[0:msg.size])
                     recv_dict = json.loads(msg.sbuf[0:msg.size])
                     #TODO handle node health
                     if recv_dict.has_key('flag'):
@@ -160,12 +161,14 @@ class JobMaster(IJobMaster):
                             # register worker
                             # check dict's integrity
                             if self.check_msg_integrity('firstPing', recv_dict):
+                                master_log.debug('[Master] Receive REGISTY msg = %s'%recv_dict)
                                 self.register_worker(recv_dict['uuid'], recv_dict['capacity'])
                             else:
                                 master_log.error('firstPing msg incomplete, key=%s'%recv_dict.keys())
-                            self.command_q.put({MPI_Wrapper.Tags.APP_INI: self.appmgr.get_app_init(self.appmgr.current_app_id), 'uuid':recv_dict['uuid']})
+                            #self.command_q.put({MPI_Wrapper.Tags.APP_INI: self.appmgr.get_app_init(self.appmgr.current_app_id), 'uuid':recv_dict['uuid']})
                         elif recv_dict['flag'] == 'lastPing' and msg.tag == MPI_Wrapper.Tags.MPI_DISCONNECT:
                             # last ping from worker, sync completed task, report node's health, logout and disconnect worker
+                            master_log.debug('[Master] Receive DISCONNECT msg = %s' % recv_dict)
                             for tid, val in recv_dict['Task']:
                                 # handle complete task
                                 if self.check_msg_integrity('Task',val):

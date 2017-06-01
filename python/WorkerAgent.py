@@ -41,13 +41,14 @@ class HeartbeatThread(BaseThread):
     """
     ping to master, provide information and requirement
     """
-    def __init__(self, client, worker_agent):
+    def __init__(self, client, worker_agent, cond):
         BaseThread.__init__(self, name='HeartbeatThread')
         self._client = client
         self.worker_agent = worker_agent
         self.queue_lock = threading.RLock()
         self.acquire_queue = Queue.Queue()         # entry = key:val
         self.interval = 1
+        self.cond = cond
         global wlog
 
     def run(self):
@@ -63,11 +64,15 @@ class HeartbeatThread(BaseThread):
             #TODO send error,add handler
             pass
 
+        # wait for the wid and init msg from master
+        self.cond.acquire()
+        self.cond.wait()
+        self.cond.release()
+
         while not self.get_stop_flag():
             try:
                 self.queue_lock.acquire()
                 send_dict.clear()
-                send_dict = dict(send_dict, **self.worker_agent.health_info())
                 while not self.acquire_queue.empty():
                     tmp_d = self.acquire_queue.get()
                     if send_dict.has_key(tmp_d.keys()[0]):
@@ -162,7 +167,8 @@ class WorkerAgent(multiprocessing.Process):
         self.tmpLock = threading.RLock()
 
         # The operation/requirements need to transfer to master through heart beat
-        self.heartbeat = HeartbeatThread(self.client,self)
+        self.heartcond = threading.Condition()
+        self.heartbeat = HeartbeatThread(self.client,self,self.heartbeat)
 
         self.ignoreTask = []
         self.cond = threading.Condition()
@@ -177,6 +183,7 @@ class WorkerAgent(multiprocessing.Process):
                 for k,v in recv_dict:
                     # registery info v={wid:val,init:{boot:v, args:v, data:v, resdir:v}, appid:v}
                     if int(k) == Tags.MPI_REGISTY_ACK:
+                        wlog.debug('[WorkerAgent] Receive Registry_ACK msg = %s'%v)
                         try:
                             self.wid = v['wid']
                             self.appid = v['appid']
@@ -187,6 +194,7 @@ class WorkerAgent(multiprocessing.Process):
                             pass
                     # add tasks v={tid:{boot:v, args:v, data:v, resdir:v}, tid:....}
                     elif int(k) == Tags.TASK_ADD:
+                        wlog.debug('[WorkerAgent] Receive TASK_ADD msg = %s'%v)
                         for tk,tv in v:
                             self.task_queue.put({tk:tv})
                         if self.worker.status == WorkerStatus.IDLE:
@@ -196,12 +204,14 @@ class WorkerAgent(multiprocessing.Process):
 
                     # remove task, v=tid
                     elif int(k) == Tags.TASK_REMOVE:
+                        wlog.debug('[WorkerAgent] Receive TASK_REMOVE msg = %s'%v)
                         if self.worker.running_task == v:
                             self.worker.kill()
                         else:
                             self.ignoreTask.append(v)
                     # master disconnect ack,
                     elif int(k) == Tags.LOGOUT:
+                        wlog.debug('[WorkerAgent] Receive LOGOUT msg = %s' % v)
                         if self.worker.status != WorkerStatus.FINALIZED:
                             wlog.error('logout error because of wrong worker status, worker status = %d', self.worker.status)
                             # TODO do something
@@ -213,6 +223,7 @@ class WorkerAgent(multiprocessing.Process):
                         break
                     # app finalize {fin:{boot:v, args:v, data:v, resdir:v}}
                     elif int(k) == Tags.APP_FIN:
+                        wlog.debug('[WorkerAgent] Receive APP_FIN msg = %s' % v)
                         self.tmpLock.acquire()
                         self.tmpExecutor = v['fin']
                         self.tmpLock.release()
@@ -223,6 +234,7 @@ class WorkerAgent(multiprocessing.Process):
                             self.cond.release()
                     # new app arrive, {init:{boot:v, args:v, data:v, resdir:v}, appid:v}
                     elif int(k) == Tags.NEW_APP:
+                        wlog.debug('[WorkerAgent] Receive NEW_APP msg = %s' % v)
                         # TODO new app arrive, need refresh
                         pass
             if self.task_queue.qsize() < self.capacity and self.worker.status == WorkerStatus.INITILAZED:
