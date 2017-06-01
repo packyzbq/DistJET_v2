@@ -1,7 +1,6 @@
 import sys,os
-import python.Util.Conf as Conf
-import subprocess
 sys.path.append(os.getenv('DistJETPATH'))
+import subprocess
 #argv[1] = num, argv[2]=capacity, argv[3]=conf_file
 if len(sys.argv) <= 3:
     print('@worker, need at least 3 parameter(given %d), exit'%(len(argv)-1))
@@ -15,13 +14,15 @@ if 'Boost' not in os.environ['PATH']:
 else:
     print('SETUP: find Boost')
 
-from python import WorkerAgent
-worker_num = sys.argv[1]
-capacity = sys.argv[2]
-agent = {}
-
+import python.Util.Conf as Conf
+Conf.Config.setCfg('Rundir',os.getcwd())
 if sys.argv[3] != 'null' and os.path.exists(sys.argv[3]):
     Conf.set_inipath(os.path.abspath(sys.argv[3]))
+
+from python import WorkerAgent
+worker_num = int(sys.argv[1])
+capacity = int(sys.argv[2])
+agent = {}
 
 # TODO: add multiprocess pool
 # pool = multiprocessing.Pool(processes=worker_num)

@@ -1,6 +1,5 @@
 from optparse import OptionParser
 import os, sys
-from python import WorkerAgent
 import subprocess
 
 if 'DistJETPATH' not in os.environ:
