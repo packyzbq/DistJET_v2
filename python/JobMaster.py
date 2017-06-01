@@ -127,7 +127,7 @@ class JobMaster(IJobMaster):
 
     def remove_worker(self,wid):
         self.worker_registry.remove_worker(wid)
-        self.task_scheduler.worker_removed(wid, datetime.datetime.now())
+        self.task_scheduler.worker_removed(wid, time.time())
 
     def anaylize_health(self, info):
         #TODO give a threshold of the health of a node

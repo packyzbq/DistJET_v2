@@ -18,7 +18,7 @@ from Util import logger
 from WorkerRegistry import WorkerStatus
 from python.Util import Conf
 
-log = logger.getLogger('WorkerAgent')
+#log = logger.getLogger('WorkerAgent')
 wlog = None
 
 def MSG_wrapper(**kwd):
@@ -48,13 +48,14 @@ class HeartbeatThread(BaseThread):
         self.queue_lock = threading.RLock()
         self.acquire_queue = Queue.Queue()         # entry = key:val
         self.interval = 1
+        global wlog
 
     def run(self):
         #add first time to ping master
         send_dict = {}
         send_dict['flag'] = 'FirstPing'
         send_dict[Tags.MPI_REGISTY] = {'uuid':self.worker_agent.uuid,'capacity':self.worker_agent.capacity}
-        send_dict['ctime'] = datetime.datetime.now()
+        send_dict['ctime'] = time.time()
         send_dict['uuid'] = self.worker_agent.uuid
         send_str = json.dumps(send_dict)
         self._client.send_string(send_str, len(send_str),0,Tags.MPI_REGISTY)
@@ -79,7 +80,7 @@ class HeartbeatThread(BaseThread):
                 send_dict['wid'] = self.worker_agent.wid
                 send_dict['health'] = self.worker_agent.health_info()
                 send_dict['rTask'] = self.worker_agent.worker.running_task
-                send_dict['ctime'] = datetime.datetime.now()
+                send_dict['ctime'] = time.time()
                 send_str = json.dumps(send_dict)
                 self._client.send_string(send_str, len(send_str), 0, Tags.MPI_PING)
             except Exception:
@@ -92,7 +93,7 @@ class HeartbeatThread(BaseThread):
             remain_command = ''
             while not self.acquire_queue.empty():
                 remain_command+=self.acquire_queue.get().keys()
-            log.waring('[HeartBeat] Acquire Queue has more command, %s, ignore them'%remain_command)
+            wlog.waring('[HeartBeat] Acquire Queue has more command, %s, ignore them'%remain_command)
         send_dict.clear()
         send_dict['wid'] = self.worker_agent.wid
         send_dict['uuid'] = self.worker_agent.uuid
@@ -103,7 +104,7 @@ class HeartbeatThread(BaseThread):
             send_dict['Task'].append(task)
         # add node health information
         send_dict['health'] = self.worker_agent.health_info()
-        send_dict['ctime'] = datetime.datetime.now()
+        send_dict['ctime'] = time.time()
         send_str = json.dumps(send_dict)
         self._client.send_string(send_str, len(send_str), 0, Tags.MPI_DISCONNECT)
 
@@ -122,11 +123,12 @@ class WorkerAgent(multiprocessing.Process):
             #use default path
             cfg_path = os.getenv('DistJETPATH')+'/config/default.cfg'
         Conf.set_inipath(cfg_path)
-
+        global wlog
         self.recv_buff = IM.IRecv_buffer()
         self.__should_stop_flag = False
         import uuid as uuid_mod
         self.uuid = str(uuid_mod.uuid4())
+        wlog = logger.getLogger('Worker_%s'%self.uuid)
         self.client = Client(self.recv_buff, Conf.Config.getCFGattr('svc_name'), self.uuid)
         self.client.initial()
         self.cfg = Conf.Config()
@@ -182,7 +184,7 @@ class WorkerAgent(multiprocessing.Process):
                     # master disconnect ack,
                     elif int(k) == Tags.LOGOUT:
                         if self.worker.status != WorkerStatus.FINALIZED:
-                            log.error('logout error because of wrong worker status, worker status = %d', self.worker.status)
+                            wlog.error('logout error because of wrong worker status, worker status = %d', self.worker.status)
                             # TODO do something
                         self.cond.acquire()
                         self.cond.notify()
@@ -208,11 +210,11 @@ class WorkerAgent(multiprocessing.Process):
                 self.heartbeat.acquire_queue.put({Tags.TASK_ADD:self.capacity-self.task_queue.qsize()})
 
         self.worker.join()
-        log.info('[WorkerAgent] Worker thread has joined')
+        wlog.info('[WorkerAgent] Worker thread has joined')
         self.stop()
 
     def stop(self):
-        log.info('[WorkerAgent] Agent stop...')
+        wlog.info('[WorkerAgent] Agent stop...')
         self.__should_stop_flag = True
         if self.heartbeat:
             self.heartbeat.stop()
@@ -225,12 +227,12 @@ class WorkerAgent(multiprocessing.Process):
 
     def app_ini_done(self,returncode,errmsg=None):
         if returncode != 0:
-            log.error('[Error] Worker initialization error, error msg = %s',errmsg)
+            wlog.error('[Error] Worker initialization error, error msg = %s',errmsg)
         self.heartbeat.acquire_queue.put({Tags.APP_INI:{'wid':self.wid,'recode':returncode, 'errmsg':errmsg}})
 
     def app_fin_done(self, returncode, errmsg = None):
         if returncode != 0:
-            log.error('[Error] Worker finalization error, error msg = %s',errmsg)
+            wlog.error('[Error] Worker finalization error, error msg = %s',errmsg)
         self.heartbeat.acquire_queue.put({Tags.APP_FIN:{'wid':self.wid,'recode':returncode}})
 
 
@@ -277,6 +279,7 @@ class Worker(BaseThread):
         self.initialized = False
         self.finialized = False
         self.status = WorkerStatus.NEW
+        global wlog
         self.log = wlog
 
         self.worker_obj = None
@@ -320,7 +323,7 @@ class Worker(BaseThread):
                     # TODO add task failed handle
                     tid,v = task.popitem()
                     self.do_task(v['boot'],v['args'],v['data'],v['resdir'])
-                    self.workeragent.task_done(tid, self.task_status, time_start=self.start_time, time_fin=datetime.datetime.now(),errcode=self.returncode)
+                    self.workeragent.task_done(tid, self.task_status, time_start=self.start_time, time_fin=time.time(),errcode=self.returncode)
                 else:
                     wlog.info('Worker: No task to do, Idle...')
                     self.status = WorkerStatus.IDLE
@@ -362,7 +365,7 @@ class Worker(BaseThread):
 
     def do_task(self, boot, args, data, resdir,tid=0,**kwd):
         self.running_task = tid
-        self.start_time = datetime.datetime.now()
+        self.start_time = time.time()
         self.process = subprocess.Popen(args=[boot, args, data], stdout=self.stdout, stderr=self.stderr)
         self.pid = self.process.pid
         if len(resdir) and not os.path.exists(resdir):
@@ -416,7 +419,7 @@ class Worker(BaseThread):
             self.do_task(boot, args, data, resdir, flag='fin')
 
     def _checkLimit(self):
-        duration = (datetime.datetime.now() - self.start_time).seconds
+        duration = (time.time() - self.start_time).seconds
         if self.limit and duration >= self.limit:
             # Time out
             self.task_status = status.TIMEOUT

@@ -39,7 +39,12 @@ if not opts.worker_num:
     print 'Lack worker numbers, exit'
     exit()
 else:
-    parg+=opts.worker_num
+    # one agent has one worker
+    parg+='1'
+    # TODO: testing performance
+    # one agent has many workers
+    #parg+=opts.worker_num
+
 
 if not opts.capacity and not opts.capacity_file:
     print 'lack capacity information, exit'
@@ -64,8 +69,9 @@ if not opts.conf_file or not os.path.exists(opts.conf_file):
 else:
     parg+= ' '+opts.conf_file
 
-print('mpiexec python $DistJET/bin/worker.py %s'%parg)
-os.system("mpiexec python $DistJETPATH/bin/worker.py %s"%parg)
+# this is the plan A-> each workerAgent has one worker
+print('mpiexec -n %d python $DistJETPATH/bin/worker.py %s'%(opts.worker_num,parg))
+os.system("mpiexec -n %d python $DistJETPATH/bin/worker.py %s"%(opts.worker_num,parg))
 
 
 
