@@ -190,6 +190,11 @@ class WorkerAgent(multiprocessing.Process):
                             self.tmpLock.acquire()
                             self.tmpExecutor = v['init']
                             self.tmpLock.release()
+                            # notify the heartbeat thread
+                            wlog.debug('[WorkerAgent] Wake up the heartbeat thread')
+                            self.heartcond.acquire()
+                            self.heartcond.notify()
+                            self.heartcond.release()
                         except KeyError:
                             pass
                     # add tasks v={tid:{boot:v, args:v, data:v, resdir:v}, tid:....}

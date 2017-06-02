@@ -150,6 +150,7 @@ class JobMaster(IJobMaster):
             self.task_scheduler = self.appmgr.get_current_app().scheduler(self.appmgr, self.worker_registry)
         else:
             self.task_scheduler = IScheduler.SimpleScheduler(self.appmgr,self.worker_registry)
+        self.task_scheduler.appid = self.appmgr.get_current_appid()
         while not self.__stop:
             if not self.recv_buffer.empty():
                 msg = self.recv_buffer.get()

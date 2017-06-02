@@ -19,11 +19,14 @@ def getLogger(name, level=None):
 
     format = logging.Formatter('[%(asctime)s] %(threadName)s %(levelname)s: %(message)s')
     handler = logging.FileHandler(log_dir+'/DistJET.'+name+'.log')
+    console = logging.StreamHandler()
     handler.setFormatter(format)
+    console.setFormatter(format)
 
     logger = logging.getLogger('DistJET.'+name)
     logger.setLevel(loglevel[level])
     logger.addHandler(handler)
+    logger.addHandler(console)
     return logger
 
 def setlevel(level, logger=None):

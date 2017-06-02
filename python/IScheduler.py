@@ -16,8 +16,11 @@ class IScheduler:
         self.worker_registry = worker_registry
         self.appmgr = appmgr
         self.task_todo_queue = Queue.Queue()
-        for tid, task in self.appmgr.get_app_task_list():
+        scheduler_log.info('[Scheduler] Load tasks created by AppMgr')
+        self.task_list = self.appmgr.get_app_task_list()
+        for tid, task in self.task_list:
             self.task_todo_queue.put({tid:task})
+        scheduler_log.info('[Scheduler] Load %d tasks'%self.task_todo_queue.qsize())
         self.scheduled_task_list = {}       # wid: tid_list
         self.completed_queue = Queue.Queue()
 
