@@ -11,8 +11,12 @@ class UnitTestApp(IApplication):
     def split(self):
         # setup Offline software
         # FIXME: Can not source JUNO env in this process
-        rc = subprocess.Popen(["./run.sh list"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+        print self.rootdir
+        script = self.rootdir+'/run.sh'
+        rc = subprocess.Popen([script,"list"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out,err = rc.communicate()
+        if err:
+            self.log.error('[APP_%d] @split() error = %s'%(self.id,str(err)))
         case = out.split('\n')
         startline = 0
         for line in case:

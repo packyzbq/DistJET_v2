@@ -22,7 +22,8 @@ class IApplication:
 
         self.scheduler = None
         self.specifiedWorker = None
-
+        self.log = None
+        self.rootdir = None
     def set_id(self,id):
         self.id = id
 
@@ -79,6 +80,9 @@ class IApplication:
         self.res_dir = os.path.abspath(res_dir)
         if not os.path.exists(self.res_dir):
             os.mkdir(self.res_dir)
+    def set_rootdir(self, rootdir):
+        if os.path.exists(rootdir):
+            self.rootdir = os.path.abspath(rootdir)
 
     def split(self):
         """

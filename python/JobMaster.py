@@ -112,11 +112,13 @@ class JobMaster(IJobMaster):
         self.__stop = False
 
     def stop(self):
-        self.task_scheduler.join()
-        master_log.info('[Master] TaskScheduler has joined')
-        self.control_thread.stop()
-        self.control_thread.join()
-        master_log.info('[Master] Control Thread has joined')
+        if self.task_scheduler and self.task_scheduler.isAlive():
+            self.task_scheduler.join()
+            master_log.info('[Master] TaskScheduler has joined')
+        if self.control_thread and self.control_thread.isAlive():
+            self.control_thread.stop()
+            self.control_thread.join()
+            master_log.info('[Master] Control Thread has joined')
         ret = self.server.stop()
         if ret != 0:
             master_log.error('[Master] Server stop error, errcode = %d'%ret)

@@ -4,7 +4,7 @@ import json
 import WorkerRegistry
 from Util import logger
 
-scheduler_log = logger.getLogger('TaskScheduler')
+scheduler_log = logger.getLogger('AppMgr')
 
 def MSG_Wrapper(**kwd):
     return json.dumps(kwd)
@@ -18,7 +18,7 @@ class IScheduler:
         self.task_todo_queue = Queue.Queue()
         scheduler_log.info('[Scheduler] Load tasks created by AppMgr')
         self.task_list = self.appmgr.get_app_task_list()
-        for tid, task in self.task_list:
+        for tid, task in self.task_list.items():
             self.task_todo_queue.put({tid:task})
         scheduler_log.info('[Scheduler] Load %d tasks'%self.task_todo_queue.qsize())
         self.scheduled_task_list = {}       # wid: tid_list

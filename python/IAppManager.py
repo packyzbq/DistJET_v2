@@ -10,11 +10,12 @@ class IAppManager:
         self.applist={}     # A list of applications  id:app
         #self.task_queue = Queue.Queue() # tid:task
         self.task_list = {} # tid: task
-        self.__tid = 0
+        self.tid = 0
         index = 0
         for app in apps:
             self.applist[index] = app
             app.set_id(index)
+            app.log = appmgr_log
             index+=1
         appmgr_log.debug('[AppMgr] Load apps, the number of app = %d'%len(apps))
         self.current_app = self.applist[0]
@@ -78,10 +79,10 @@ class SimpleAppManager(IAppManager):
         if not app:
             app = self.applist[self.current_app_id]
         data = app.split()
-        for k,v in data:
+        for k,v in data.items():
             # create tasks, and store in task_queue
-            task = Task.Task(self.__tid)
-            self.__tid+=1
+            task = Task.Task(self.tid)
+            self.tid+=1
             task.initial(app.app_boot, app.args, {k:v}, app.res_dir)
             #self.task_queue.put(task)
             self.task_list[task.tid] = task
