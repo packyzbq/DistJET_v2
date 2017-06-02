@@ -61,6 +61,7 @@ class WorkerRegistry:
         return len(self.__all_workers)
 
     def add_worker(self, w_uuid, max_capacity):
+        wRegistery_log.debug('[WorkerRegistry] Before add worker')
         self.lock.acquire()
         try:
             if self.__all_workers_uuid.has_key(w_uuid):
@@ -78,6 +79,7 @@ class WorkerRegistry:
             wRegistery_log.error('[WorkerRegistry]: Error occurs when adding worker, msg=%s', traceback.format_exc())
         finally:
             self.lock.release()
+            wRegistery_log.debug('[WorkerRegistry] After add worker')
 
     def remove_worker(self, wid):
         self.lock.acquire()

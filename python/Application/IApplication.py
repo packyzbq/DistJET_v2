@@ -8,6 +8,7 @@ from IAPPWorker import IAPPWorker
 
 class IApplication:
     def __init__(self):
+        self.id = None
         self.app_boot=[]
         self.res_dir = ""   # the directory of result
         self.args = {}      # the args for app_boot
@@ -21,6 +22,9 @@ class IApplication:
 
         self.scheduler = None
         self.specifiedWorker = None
+
+    def set_id(self,id):
+        self.id = id
 
     def set_scheduler(self, scheduler):
         if not callable(scheduler) or not issubclass(scheduler,IScheduler.IScheduler):

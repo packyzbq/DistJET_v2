@@ -54,8 +54,8 @@ class HeartbeatThread(BaseThread):
     def run(self):
         #add first time to ping master
         send_dict = {}
-        send_dict['flag'] = 'FirstPing'
-        send_dict[Tags.MPI_REGISTY] = {'uuid':self.worker_agent.uuid,'capacity':self.worker_agent.capacity}
+        send_dict['flag'] = 'firstPing'
+        send_dict[Tags.MPI_REGISTY] = {'capacity':self.worker_agent.capacity}
         send_dict['ctime'] = time.time()
         send_dict['uuid'] = self.worker_agent.uuid
         send_str = json.dumps(send_dict)
@@ -168,7 +168,7 @@ class WorkerAgent(multiprocessing.Process):
 
         # The operation/requirements need to transfer to master through heart beat
         self.heartcond = threading.Condition()
-        self.heartbeat = HeartbeatThread(self.client,self,self.heartbeat)
+        self.heartbeat = HeartbeatThread(self.client,self,self.heartcond)
 
         self.ignoreTask = []
         self.cond = threading.Condition()

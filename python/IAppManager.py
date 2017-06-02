@@ -14,7 +14,9 @@ class IAppManager:
         index = 0
         for app in apps:
             self.applist[index] = app
+            app.set_id(index)
             index+=1
+        appmgr_log.debug('[AppMgr] Load apps, the number of app = %d'%len(apps))
         self.current_app = self.applist[0]
         self.current_app_id = 0
     def create_task(self,app=None):
@@ -82,6 +84,7 @@ class SimpleAppManager(IAppManager):
             task.initial(app.app_boot, app.args, {k:v}, app.res_dir)
             #self.task_queue.put(task)
             self.task_list[task.tid] = task
+        appmgr_log.info('[AppMgr] App %d, Create %d tasks'%(app.id,len(data)))
 
     def finalize_app(self, app=None):
         if not app:

@@ -6,9 +6,9 @@ MPI_log = None
 class Tags:
     MPI_PING = 6
 
-    MPI_REGISTY = 11
+    MPI_REGISTY = 1
     MPI_REGISTY_ACK = 12
-    MPI_DISCONNECT = 13
+    MPI_DISCONNECT = 2
 ###### NUM <100 for mpich ; NUM>= 100 for python
     WORKER_STOP     =100
     WORKER_INFO     = 101   #w->m sync worker info (uuid, capacity)
@@ -51,8 +51,8 @@ class Server:
     def send_int(self, int_data, msgsize, dest, tags):
         self.server.send_int(int_data, msgsize, dest, tags)
 
-    def send_string(self, str ,msgsize, dest, tag):
-        ret = self.server.send_string(str, msgsize, dest, tag)
+    def send_string(self, strs ,msgsize, dest, tag):
+        ret = self.server.send_string(strs, msgsize, str(dest), tag)
         return ret
 
     def run(self):
@@ -86,8 +86,8 @@ class Client:
         print('[Python-Client]: send string=%s, tag=%d' % (str, tags))
         self.client.send_int(int_data, msgsize, dest, tags)
 
-    def send_string(self, str ,msgsize, dest, tags):
-        return self.client.send_string(str, msgsize, dest, tags)
+    def send_string(self, strs ,msgsize, dest, tags):
+        return self.client.send_string(strs, msgsize, dest, tags)
 
     def stop(self):
         return self.client.stop()

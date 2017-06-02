@@ -126,6 +126,7 @@ class JobMaster(IJobMaster):
         self.__stop = True
 
     def register_worker(self, w_uuid, capacity = 1):
+        master_log.debug('[Master] register worker %s'%w_uuid)
         worker = self.worker_registry.add_worker(w_uuid, capacity)
         if not worker:
             master_log.warning('[Master] The uuid=%s of worker has already registered', w_uuid)
@@ -162,7 +163,7 @@ class JobMaster(IJobMaster):
                             # check dict's integrity
                             if self.check_msg_integrity('firstPing', recv_dict):
                                 master_log.debug('[Master] Receive REGISTY msg = %s'%recv_dict)
-                                self.register_worker(recv_dict['uuid'], recv_dict['capacity'])
+                                self.register_worker(recv_dict['uuid'], recv_dict[str(MPI_Wrapper.Tags.MPI_REGISTY)]['capacity'])
                             else:
                                 master_log.error('firstPing msg incomplete, key=%s'%recv_dict.keys())
                             #self.command_q.put({MPI_Wrapper.Tags.APP_INI: self.appmgr.get_app_init(self.appmgr.current_app_id), 'uuid':recv_dict['uuid']})
@@ -255,7 +256,8 @@ class JobMaster(IJobMaster):
         if tag == 'Task':
             return set(['task_stat', 'time_start', 'time_fin', 'errcode']).issubset(set(msg.keys()))
         elif tag == 'firstPing':
-            return set(['uuid', 'capacity']).issubset(set(msg.keys()))
+            return set(['uuid']).issubset(set(msg.keys()))
+            #return set(['uuid', 'capacity']).issubset(set(msg.keys()))
         elif tag == 'health':
             return set(['CpuUsage','MemoUsage']).issubset(set(msg.keys()))
 
