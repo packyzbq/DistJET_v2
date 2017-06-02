@@ -19,7 +19,7 @@ class IAppManager:
         appmgr_log.debug('[AppMgr] Load apps, the number of app = %d'%len(apps))
         self.current_app = self.applist[0]
         self.current_app_id = 0
-        self.create_task()
+        self.runflag = self.create_task()
     def create_task(self,app=None):
         """
         According to split function of app, split data and create small tasks, store them into task_queue
@@ -85,7 +85,12 @@ class SimpleAppManager(IAppManager):
             task.initial(app.app_boot, app.args, {k:v}, app.res_dir)
             #self.task_queue.put(task)
             self.task_list[task.tid] = task
-        appmgr_log.info('[AppMgr] App %d, Create %d tasks'%(app.id,len(data)))
+        if len(self.task_list) == 0 and len(data) == 0:
+            appmgr_log.error('[AppMgr]: Create 0 task, check app split() method')
+            return False
+        else:
+            appmgr_log.info('[AppMgr] App %d, Create %d tasks'%(app.id,len(data)))
+            return True
         
 
     def finalize_app(self, app=None):

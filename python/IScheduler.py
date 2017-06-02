@@ -23,6 +23,7 @@ class IScheduler:
         scheduler_log.info('[Scheduler] Load %d tasks'%self.task_todo_queue.qsize())
         self.scheduled_task_list = {}       # wid: tid_list
         self.completed_queue = Queue.Queue()
+        self.runflag = self.task_todo_queue.qsize() > 0
 
     def initialize(self):
         """

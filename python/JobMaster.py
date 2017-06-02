@@ -145,12 +145,18 @@ class JobMaster(IJobMaster):
     def startProcessing(self):
         # TODO(optional) load customed AppManager
         self.appmgr = SimpleAppManager(apps=self.applications)
+        if not self.appmgr.runflag:
+            # appmgr load task error, exit
+            self.stop()
+            return
         #self.task_scheduler = IScheduler.SimpleScheduler(self.appmgr,self.worker_registry)
         if self.appmgr.get_current_app():
             self.task_scheduler = self.appmgr.get_current_app().scheduler(self.appmgr, self.worker_registry)
         else:
             self.task_scheduler = IScheduler.SimpleScheduler(self.appmgr,self.worker_registry)
         self.task_scheduler.appid = self.appmgr.get_current_appid()
+        # TODO add start worker command
+
         while not self.__stop:
             if not self.recv_buffer.empty():
                 msg = self.recv_buffer.get()
