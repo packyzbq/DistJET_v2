@@ -102,6 +102,20 @@ class JobMaster(IJobMaster):
 
         self.__wid = 1
 
+        # TODO(optional) load customed AppManager
+        self.appmgr = SimpleAppManager(apps=self.applications)
+        master_log.debug('[Master] Appmgr has instanced')
+        if not self.appmgr.runflag:
+            # appmgr load task error, exit
+            self.stop()
+            return
+        #self.task_scheduler = IScheduler.SimpleScheduler(self.appmgr,self.worker_registry)
+        if self.appmgr.get_current_app():
+            self.task_scheduler = self.appmgr.get_current_app().scheduler(self.appmgr, self.worker_registry)
+        else:
+            self.task_scheduler = IScheduler.SimpleScheduler(self.appmgr,self.worker_registry)
+        self.task_scheduler.appid = self.appmgr.get_current_appid()
+
         self.server = MPI_Wrapper.Server(self.recv_buffer,self.svc_name)
         ret = self.server.initialize()
         if ret != 0:
@@ -133,8 +147,10 @@ class JobMaster(IJobMaster):
         if not worker:
             master_log.warning('[Master] The uuid=%s of worker has already registered', w_uuid)
         else:
-            send_str = MSG_wrapper(wid=worker.wid,appid=self.task_scheduler.appid, init=self.task_scheduler.init_worker())
-            self.server.send_string(send_str, len(send_str), w_uuid, MPI_Wrapper.Tags.MPI_REGISTY_ACK)
+            send_dict = {'wid':worker.wid, 'appid':self.task_scheduler.appid, 'init':self.task_scheduler.init_worker(), 'tag': MPI_Wrapper.Tags.MPI_REGISTY_ACK, 'uuid':w_uuid} 
+            self.command_q.put(send_dict)
+            #send_str = MSG_wrapper(wid=worker.wid,appid=self.task_scheduler.appid, init=self.task_scheduler.init_worker())
+            #self.server.send_string(send_str, len(send_str), w_uuid, MPI_Wrapper.Tags.MPI_REGISTY_ACK)
 
     def remove_worker(self,wid):
         self.worker_registry.remove_worker(wid)
@@ -145,19 +161,7 @@ class JobMaster(IJobMaster):
         pass
 
     def startProcessing(self):
-        # TODO(optional) load customed AppManager
-        self.appmgr = SimpleAppManager(apps=self.applications)
-        if not self.appmgr.runflag:
-            # appmgr load task error, exit
-            self.stop()
-            return
-        #self.task_scheduler = IScheduler.SimpleScheduler(self.appmgr,self.worker_registry)
-        if self.appmgr.get_current_app():
-            self.task_scheduler = self.appmgr.get_current_app().scheduler(self.appmgr, self.worker_registry)
-        else:
-            self.task_scheduler = IScheduler.SimpleScheduler(self.appmgr,self.worker_registry)
-        self.task_scheduler.appid = self.appmgr.get_current_appid()
-        # TODO add start worker command
+                # TODO add start worker command
 
         while not self.__stop:
             if not self.recv_buffer.empty():
@@ -256,7 +260,11 @@ class JobMaster(IJobMaster):
                 send_dict = dict(send_dict, **self.command_q.get())
             if len(send_dict) != 0:
                 send_str = json.dumps(send_dict)
-                self.server.send_string(send_str, len(send_str), send_dict['uuid'], MPI_Wrapper.Tags.MPI_PING)
+                master_log.debug('[Master] Send msg = %s'%send_str)
+                if "tag" in send_dict.keys():
+                    self.server.send_string(send_str, len(send_str), send_dict['uuid'], send_dict["tag"])
+                else:
+                    self.server.send_string(send_str, len(send_str), send_dict['uuid'], MPI_Wrapper.Tags.MPI_PING)
 
 
 

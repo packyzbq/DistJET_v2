@@ -26,9 +26,12 @@ agent = {}
 
 # TODO: add multiprocess pool
 # pool = multiprocessing.Pool(processes=worker_num)
-
+agent[0] = WorkerAgent.WorkerAgent(sys.argv[3],capacity)
+agent[0].run()
+'''
 for i in range(0,worker_num):
     agent[i] = WorkerAgent.WorkerAgent(sys.argv[3],capacity)
     agent[i].start()
 for a in agent.values():
     a.join()
+'''

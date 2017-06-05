@@ -59,6 +59,7 @@ class HeartbeatThread(BaseThread):
         send_dict['ctime'] = time.time()
         send_dict['uuid'] = self.worker_agent.uuid
         send_str = json.dumps(send_dict)
+        wlog.debug('[HeartBeat] Send msg = %s'%send_str)
         ret = self._client.send_string(send_str, len(send_str),0,Tags.MPI_REGISTY)
         if ret != 0:
             #TODO send error,add handler
@@ -90,6 +91,7 @@ class HeartbeatThread(BaseThread):
                 send_dict['rTask'] = self.worker_agent.worker.running_task
                 send_dict['ctime'] = time.time()
                 send_str = json.dumps(send_dict)
+                wlog.debug('[HeartBeat] Send msg = %s'%send_str)
                 ret = self._client.send_string(send_str, len(send_str), 0, Tags.MPI_PING)
                 if ret != 0:
                     #TODO add send error handler
@@ -118,6 +120,7 @@ class HeartbeatThread(BaseThread):
         send_dict['health'] = self.worker_agent.health_info()
         send_dict['ctime'] = time.time()
         send_str = json.dumps(send_dict)
+        wlog.debug('[HeartBeat] Send msg = %s'%send_str)
         ret = self._client.send_string(send_str, len(send_str), 0, Tags.MPI_DISCONNECT)
         if ret != 0:
             #TODO add send error handler
@@ -128,12 +131,13 @@ class HeartbeatThread(BaseThread):
     def set_ping_duration(self, interval):
         self.interval = interval
 
-class WorkerAgent(multiprocessing.Process):
+class WorkerAgent:
     """
     agent
     """
     def __init__(self,cfg_path=None, capacity=1):
-        multiprocessing.Process.__init__(self)
+        #multiprocessing.Process.__init__(self)
+        #BaseThread.__init__(self,"agent")
         if not cfg_path or cfg_path=='null':
             #use default path
             cfg_path = os.getenv('DistJETPATH')+'/config/default.cfg'
@@ -147,13 +151,13 @@ class WorkerAgent(multiprocessing.Process):
         Conf.Config()
         self.cfg = Conf.Config
         if self.cfg.isload():
-            wlog.debug('[Worker] Loaded config file %s'%cfg_path)
-        wlog.debug('[Worker] Start to connect to service <%s>'%self.cfg.getCFGattr('svc_name'))
+            wlog.debug('[Agent] Loaded config file %s'%cfg_path)
+        wlog.debug('[Agent] Start to connect to service <%s>'%self.cfg.getCFGattr('svc_name'))
         self.client = Client(self.recv_buff, self.cfg.getCFGattr('svc_name'), self.uuid)
         ret = self.client.initial()
         if ret != 0:
             #TODO client initial error, add handler
-            wlog.error('[Worker] Client initialize error, errcode = %d'%ret)
+            wlog.error('[Agent] Client initialize error, errcode = %d'%ret)
             #exit()
 
         
@@ -173,14 +177,22 @@ class WorkerAgent(multiprocessing.Process):
         self.ignoreTask = []
         self.cond = threading.Condition()
         self.worker = Worker(self,self.cond)
+        wlog.debug('[Agent] Start Worker Thread')
         self.worker.start()
 
-    def start(self):
-        self.heartbeat.run()
+    def run(self):
+        wlog.debug('[Agent] WorkerAgent run...')
+        self.heartbeat.start()
+        wlog.debug('[WorkerAgent] HeartBeat thread start...')
         while True:
+            time.sleep(1)
             if not self.recv_buff.empty():
-                recv_dict = json.loads(self.recv_buff.get())
-                for k,v in recv_dict:
+                msg = self.recv_buff.get()
+                if msg.tag == -1:
+                    continue
+                wlog.debug('[Agent] Agent receive a msg = %s'%msg.sbuf[0:msg.size])
+                recv_dict = json.loads(msg.sbuf[0:msg.size])
+                for k,v in recv_dict.items():
                     # registery info v={wid:val,init:{boot:v, args:v, data:v, resdir:v}, appid:v}
                     if int(k) == Tags.MPI_REGISTY_ACK:
                         wlog.debug('[WorkerAgent] Receive Registry_ACK msg = %s'%v)
@@ -341,6 +353,7 @@ class Worker(BaseThread):
     def run(self):
         while not self.get_stop_flag():
             while not self.initialized:
+                wlog.debug('[Worker] Worker Start and not initial, ready to sleep')
                 self.status = WorkerStatus.NEW
                 self.cond.acquire()
                 self.cond.wait()
