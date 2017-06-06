@@ -278,16 +278,15 @@ class JobMaster(IJobMaster):
 
             send_dict = {}
             while not self.command_q.empty():
-                send_dict = dict(send_dict, **self.command_q.get())
+                tmp_dict = dict(send_dict, **self.command_q.get())
+                if "tag" in tmp_dict.keys():
+                    send_dict = {tmp_dict['tag']: tmp_dict}
+                else:
+                    send_dict = {MPI_Wrapper.Tags.MPI_PING: tmp_dict}
             if len(send_dict) != 0:
                 send_str = json.dumps(send_dict)
                 master_log.debug('[Master] Send msg = %s'%send_str)
-                if "tag" in send_dict.keys():
-                    self.server.send_string(send_str, len(send_str), send_dict['uuid'], send_dict["tag"])
-                else:
-                    self.server.send_string(send_str, len(send_str), send_dict['uuid'], MPI_Wrapper.Tags.MPI_PING)
-
-
+                self.server.send_string(send_str, len(send_str), send_dict['uuid'], send_dict.keys()[0])
 
 
     def check_msg_integrity(self, tag, msg):
