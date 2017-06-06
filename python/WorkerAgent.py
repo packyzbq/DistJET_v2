@@ -47,7 +47,7 @@ class HeartbeatThread(BaseThread):
         self.worker_agent = worker_agent
         self.queue_lock = threading.RLock()
         self.acquire_queue = Queue.Queue()         # entry = key:val
-        self.interval = 1
+        self.interval = 10
         self.cond = cond
         global wlog
 
@@ -81,10 +81,10 @@ class HeartbeatThread(BaseThread):
                         continue
                     send_dict = dict(send_dict, **tmp_d)
                 self.queue_lock.release()
-                send_dict['Task'] = []
+                send_dict['Task'] = {}
                 while not self.worker_agent.task_completed_queue.empty():
                     task = self.worker_agent.task_completed_queue.get()
-                    send_dict['Task'].append(task)
+                    send_dict['Task'] = dict(send_dict['Task'],**task)
                 send_dict['uuid'] = self.worker_agent.uuid
                 send_dict['wid'] = self.worker_agent.wid
                 send_dict['health'] = self.worker_agent.health_info()
@@ -113,10 +113,10 @@ class HeartbeatThread(BaseThread):
         send_dict['wid'] = self.worker_agent.wid
         send_dict['uuid'] = self.worker_agent.uuid
         send_dict['flag'] = 'lastPing'
-        send_dict['Task'] = []
+        send_dict['Task'] = {}
         while not self.worker_agent.task_completed_queue.empty():
             task = self.worker_agent.task_completed_queue.get()
-            send_dict['Task'].append(task)
+            send_dict['Task'] = dict(send_dict['Task'],**task)
         # add node health information
         send_dict['health'] = self.worker_agent.health_info()
         send_dict['ctime'] = time.time()
@@ -209,6 +209,11 @@ class WorkerAgent:
                             self.heartcond.acquire()
                             self.heartcond.notify()
                             self.heartcond.release()
+							# notify worker initialize
+                            wlog.info('[Agent] Wake up worker to initialize')
+                            self.cond.acquire()
+                            self.cond.notify()
+                            self.cond.release()
                         except KeyError:
                             pass
                     # add tasks v={tid:{boot:v, args:v, data:v, resdir:v}, tid:....}
@@ -370,11 +375,11 @@ class Worker(BaseThread):
                 if self.finialized:
                     break
 
-                self.workeragent.tmpLock.require()
-                if cmp(['boot','args','data','resdir'], self.workeragent.tmpExecutor.keys()) == 0:
+                self.workeragent.tmpLock.acquire()
+                if set(['boot','data','args','resdir']).issubset(set(self.workeragent.tmpExecutor.keys())):
                     self.initialize(self.workeragent.tmpExecutor['boot'], self.workeragent.tmpExecutor['args'], self.workeragent.tmpExecutor['data'], self.workeragent.tmpExecutor['resdir'])
                 else:
-                    wlog.warning('[Worker] Worker cannot initialize beacuse of lack of data, your key = %s' % (self.workeragent.tmpExecutor.keys()))
+                    wlog.warning('[Worker] Worker cannot initialize beacuse of lack of data, need keys = boot,data,args,resdir,your key = %s' % (self.workeragent.tmpExecutor.keys()))
                 self.workeragent.tmpLock.release()
                 if not self.initialized:
                     continue

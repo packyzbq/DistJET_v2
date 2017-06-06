@@ -213,7 +213,7 @@ class JobMaster(IJobMaster):
                         wentry = self.worker_registry.get_entry(recv_dict['wid'])
                         wentry.setStatus(recv_dict['wstatus'])
                     else:
-                        for k,v in recv_dict:
+                        for k,v in recv_dict.item():
                             if not k in [str(MPI_Wrapper.Tags.APP_INI),
                                          str(MPI_Wrapper.Tags.TASK_ADD),
                                          str(MPI_Wrapper.Tags.APP_FIN),
@@ -221,6 +221,7 @@ class JobMaster(IJobMaster):
                                 continue
                         # handle acquires
                             if int(k) == MPI_Wrapper.Tags.APP_INI:
+                                master_log.debug('[Master] Receive a App_INI msg = %s'%v)
                                 if v['recode'] == status.SUCCESS:
                                     self.task_scheduler.worker_initialized(recv_dict['wid'])
                                     master_log.info('worker %d initialize successfully'%recv_dict['wid'])
@@ -286,7 +287,8 @@ class JobMaster(IJobMaster):
             if len(send_dict) != 0:
                 send_str = json.dumps(send_dict)
                 master_log.debug('[Master] Send msg = %s'%send_str)
-                self.server.send_string(send_str, len(send_str), send_dict['uuid'], send_dict.keys()[0])
+                tag = send_dict.keys()[0]
+                self.server.send_string(send_str, len(send_str), send_dict[tag]['uuid'], tag)
 
 
     def check_msg_integrity(self, tag, msg):

@@ -26,7 +26,7 @@ class Config(object):
     __policy = {
         'LOST_WORKER_TIMEOUT': 60,
         'IDLE_WORKER_TIMEOUT': 100,
-        'CONTROL_DELAY': 1,
+        'CONTROL_DELAY': 10,
         'ATTEMPT_TIME': 2,
         'INITIAL_TRY_TIME':3,
         'FIN_TRY_TIME':3

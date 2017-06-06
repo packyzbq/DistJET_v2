@@ -97,6 +97,8 @@ class IScheduler:
         app = self.appmgr.get_current_app()
         task_dict = {}
         task_dict['boot'] = app.app_init_boot
+        task_dict['args'] = {}
+        task_dict['data'] = {}
         task_dict = dict(task_dict, **app.app_init_extra)
         task_dict['resdir'] = app.res_dir
         return task_dict
