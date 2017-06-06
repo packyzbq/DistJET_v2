@@ -373,6 +373,8 @@ class Worker(BaseThread):
                 self.workeragent.tmpLock.require()
                 if cmp(['boot','args','data','resdir'], self.workeragent.tmpExecutor.keys()) == 0:
                     self.initialize(self.workeragent.tmpExecutor['boot'], self.workeragent.tmpExecutor['args'], self.workeragent.tmpExecutor['data'], self.workeragent.tmpExecutor['resdir'])
+                else:
+                    wlog.warning('[Worker] Worker cannot initialize beacuse of lack of data, your key = %s' % (self.workeragent.tmpExecutor.keys()))
                 self.workeragent.tmpLock.release()
                 if not self.initialized:
                     continue
