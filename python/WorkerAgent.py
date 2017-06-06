@@ -90,6 +90,7 @@ class HeartbeatThread(BaseThread):
                 send_dict['health'] = self.worker_agent.health_info()
                 send_dict['rTask'] = self.worker_agent.worker.running_task
                 send_dict['ctime'] = time.time()
+                send_dict['wstatus'] = self.worker_agent.worker.status
                 send_str = json.dumps(send_dict)
                 wlog.debug('[HeartBeat] Send msg = %s'%send_str)
                 ret = self._client.send_string(send_str, len(send_str), 0, Tags.MPI_PING)
@@ -119,6 +120,7 @@ class HeartbeatThread(BaseThread):
         # add node health information
         send_dict['health'] = self.worker_agent.health_info()
         send_dict['ctime'] = time.time()
+        send_dict['wstatus'] = self.worker_agent.worker.status
         send_str = json.dumps(send_dict)
         wlog.debug('[HeartBeat] Send msg = %s'%send_str)
         ret = self._client.send_string(send_str, len(send_str), 0, Tags.MPI_DISCONNECT)
@@ -229,15 +231,19 @@ class WorkerAgent:
                     # master disconnect ack,
                     elif int(k) == Tags.LOGOUT:
                         wlog.debug('[WorkerAgent] Receive LOGOUT msg = %s' % v)
-                        if self.worker.status != WorkerStatus.FINALIZED:
-                            wlog.error('logout error because of wrong worker status, worker status = %d', self.worker.status)
-                            # TODO do something
                         self.cond.acquire()
                         self.cond.notify()
                         self.cond.release()
                         # stop worker agent
                         #self.heartbeat.acquire_queue.put({Tags.LOGOUT_ACK:self.wid})
                         break
+                    elif int(k) == Tags.WORKER_STOP:
+                        wlog.debug('[Agent] Receive WORKER_STOP msg = %s'%v)
+                        self.worker.terminate()
+                        self.cond.acquire()
+                        self.cond.notify()
+                        self.cond.release()
+
                     # app finalize {fin:{boot:v, args:v, data:v, resdir:v}}
                     elif int(k) == Tags.APP_FIN:
                         wlog.debug('[WorkerAgent] Receive APP_FIN msg = %s' % v)
@@ -276,15 +282,15 @@ class WorkerAgent:
         tmp_dict = dict({'task_stat':task_stat},**kwd)
         self.task_completed_queue.put({tid:tmp_dict})
 
-    def app_ini_done(self,returncode,errmsg=None):
+    def app_ini_done(self,returncode,errmsg=None, result=None):
         if returncode != 0:
             wlog.error('[Error] Worker initialization error, error msg = %s',errmsg)
-        self.heartbeat.acquire_queue.put({Tags.APP_INI:{'wid':self.wid,'recode':returncode, 'errmsg':errmsg}})
+        self.heartbeat.acquire_queue.put({Tags.APP_INI:{'wid':self.wid,'recode':returncode, 'errmsg':errmsg, 'result':result}})
 
-    def app_fin_done(self, returncode, errmsg = None):
+    def app_fin_done(self, returncode, errmsg = None, result=None):
         if returncode != 0:
             wlog.error('[Error] Worker finalization error, error msg = %s',errmsg)
-        self.heartbeat.acquire_queue.put({Tags.APP_FIN:{'wid':self.wid,'recode':returncode}})
+        self.heartbeat.acquire_queue.put({Tags.APP_FIN:{'wid':self.wid,'recode':returncode, 'result':result}})
 
 
 
@@ -350,6 +356,8 @@ class Worker(BaseThread):
         self.virLimit = None
         self.start_time = None
 
+        self.lock = threading.RLock()
+
     def run(self):
         while not self.get_stop_flag():
             while not self.initialized:
@@ -359,13 +367,19 @@ class Worker(BaseThread):
                 self.cond.wait()
                 self.cond.release()
 
+                if self.finialized:
+                    break
+
                 self.workeragent.tmpLock.require()
                 if cmp(['boot','args','data','resdir'], self.workeragent.tmpExecutor.keys()) == 0:
                     self.initialize(self.workeragent.tmpExecutor['boot'], self.workeragent.tmpExecutor['args'], self.workeragent.tmpExecutor['data'], self.workeragent.tmpExecutor['resdir'])
                 self.workeragent.tmpLock.release()
                 if not self.initialized:
                     continue
-            wlog.inof('Worker Initialized, Ready to running tasks')
+            if self.finialized:
+                wlog.info('[Worker] Initialize error, worker terminate')
+                break
+            wlog.info('Worker Initialized, Ready to running tasks')
             self.status = WorkerStatus.RUNNING
             while not self.finialized:
                 if not self.workeragent.task_queue.empty():
@@ -384,17 +398,21 @@ class Worker(BaseThread):
                     self.cond.release()
             # do finalize
             # TODO according to Policy ,decide to force finalize or wait for all task done
-            self.workeragent.tmpLock.acquire()
-            self.finalize(self.workeragent.tmpExecutor['boot'], self.workeragent.tmpExecutor['args'],
-                          self.workeragent.tmpExecutor['data'], self.workeragent.tmpExecutor['resdir'])
-            self.workeragent.tmpLock.release()
-            self.workeragent.app_fin_done(self.returncode, status.describe(self.returncode))
+            while self.status != WorkerStatus.FINALIZED:
+                self.workeragent.tmpLock.acquire()
+                self.finalize(self.workeragent.tmpExecutor['boot'], self.workeragent.tmpExecutor['args'],
+                              self.workeragent.tmpExecutor['data'], self.workeragent.tmpExecutor['resdir'])
+                self.workeragent.tmpLock.release()
+                self.cond.acquire()
+                self.cond.wait()
+                self.cond.release()
+            #self.workeragent.app_fin_done(self.returncode, status.describe(self.returncode))
 
 
             # sleep or stop
-            self.cond.acquire()
-            self.cond.wait()
-            self.cond.release()
+            #self.cond.acquire()
+            #self.cond.wait()
+            #self.cond.release()
 
 
 
@@ -404,16 +422,26 @@ class Worker(BaseThread):
         wlog.info('Worker start to initialize...')
         if self.worker_obj:
             if self.worker_obj.initialize(boot=boot, args=args,data=data,resdir=resdir):
+                self.lock.acquire()
                 self.initialized = True
                 self.status = WorkerStatus.INITILAZED
+                self.lock.release()
             else:
                 wlog.error('Error: error occurs when initializing worker')
         elif not boot and not data:
+            self.lock.acquire()
             self.initialized = True
             self.status = WorkerStatus.INITILAZED
+            self.lock.release()
         else:
-            if self.do_task(boot, args, data, resdir, flag='init'):
+            if self.do_task(boot, args, data, resdir, flag='init') == status.SUCCESS:
+                self.lock.acquire()
                 self.initialized = True
+                self.status = WorkerStatus.INITILAZED
+                self.lock.release()
+        recode = status.SUCCESS if self.initialized else status.FAIL
+        # TODO add result
+        self.workeragent.app_ini_done(recode, status.describe(recode))
 
     def do_task(self, boot, args, data, resdir,tid=0,**kwd):
         self.running_task = tid
@@ -459,16 +487,27 @@ class Worker(BaseThread):
         wlog.info('Worker start to finalize...')
         if self.worker_obj:
             if self.worker_obj.finalize(boot=boot, args=args,data=data,resdir=resdir):
-                self.finialized = True
+                self.lock.acquire()
+                #self.finialized = True
                 self.status = WorkerStatus.FINALIZED
+                self.lock.release()
             else:
                 wlog.error("Error occurs when worker finalizing")
         elif not boot and not data:
-            self.finialized = True
+            self.lock.acquire()
+            #self.finialized = True
             self.status = WorkerStatus.FINALIZED
+            self.lock.release()
             return 0
         else:
-            self.do_task(boot, args, data, resdir, flag='fin')
+            if self.do_task(boot, args, data, resdir, flag='fin') == status.SUCCESS:
+                self.lock.acquire()
+                #self.finialized = True
+                self.status = WorkerStatus.FINALIZED
+                self.lock.release()
+        # TODO add finalize result record
+        recode = status.SUCCESS if self.finialized else status.FAIL
+        self.workeragent.app_fin_done(recode,status.describe(recode))
 
     def _checkLimit(self):
         duration = (time.time() - self.start_time).seconds
@@ -483,6 +522,12 @@ class Worker(BaseThread):
             self.kill()
             return False
         return True
+
+    def terminate(self):
+        self.lock.acquire()
+        self.finialized = True
+        self.status = WorkerStatus.FINALIZED
+        self.lock.release()
 
     def kill(self):
         if not self.process:

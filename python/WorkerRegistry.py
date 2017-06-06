@@ -28,6 +28,9 @@ class WorkerEntry:
         self.last_contact_time = self.registration_time
         self.idle_time = 0
 
+        self.init_times = 0
+        self.fin_times = 0
+
         self.max_capacity = max_capacity
         self.assigned = 0
 
@@ -47,6 +50,26 @@ class WorkerEntry:
         return self.status
     def isIdle_timeout(self):
         return self.idle_time and self.policy.getPolicyattr('IDLE_WORKER_TIMEOUT') and time.time()-self.idle_time > self.policy.getPolicyattr('IDLE_WORKER_TIMEOUT')
+
+    def setStatus(self,status):
+        self.alive_lock.acquire()
+        self.status = status
+        self.alive_lock.release()
+
+    def reinit(self):
+        self.alive_lock.acquire()
+        try:
+            self.init_times+=1
+            return self.init_times < Config.getPolicyattr('INITIAL_TRY_TIME')
+        finally:
+            self.alive_lock.release()
+    def refin(self):
+        self.alive_lock.acquire()
+        try:
+            self.init_times += 1
+            return self.init_times < Config.getPolicyattr('FIN_TRY_TIME')
+        finally:
+            self.alive_lock.release()
 
 class WorkerRegistry:
     def __init__(self):
@@ -111,6 +134,12 @@ class WorkerRegistry:
 
     def get_worker_list(self):
         return self.__all_workers.values()
+
+    def worker_reinit(self, wid):
+        return self.get_entry(wid).reinit()
+
+    def worker_refin(self, wid):
+        return self.get_entry(wid).refin()
 
     def __iter__(self):
         return self.__all_workers.copy().__iter__()

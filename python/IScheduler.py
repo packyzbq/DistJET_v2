@@ -101,6 +101,16 @@ class IScheduler:
         task_dict['resdir'] = app.res_dir
         return task_dict
 
+    def fin_worker(self):
+        app = self.appmgr.get_current_app()
+        task_dict = {}
+        task_dict['boot'] = app.app_fin_boot
+        task_dict['resdir'] = app.res_dir
+        task_dict['data'] = {}
+        task_dict['args'] = {}
+        task_dict = dict(task_dict,**app.app_fin_extra)
+        return task_dict
+
     def worker_initialized(self, wid):
         """
         called by Master when a worker agent successfully initialized the worker, (maybe check the init_output)
