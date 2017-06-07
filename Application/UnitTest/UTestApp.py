@@ -4,8 +4,8 @@ import os
 
 
 class UnitTestApp(IApplication):
-    def __init__(self):
-        IApplication.__init__(self)
+    def __init__(self, rootdir, name):
+        IApplication.__init__(self, rootdir, name)
         self.task_reslist = {}
 
     def split(self):
@@ -25,7 +25,7 @@ class UnitTestApp(IApplication):
                 break
         for c in case[startline:]:
             if c != '':
-                self.data[c] = True
+                self.data[c] = ""
         return self.data
 
 

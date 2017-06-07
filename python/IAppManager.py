@@ -1,6 +1,5 @@
 import Queue
 from Util import logger
-
 import Task
 
 appmgr_log = logger.getLogger('AppMgr')
@@ -11,16 +10,21 @@ class IAppManager:
         #self.task_queue = Queue.Queue() # tid:task
         self.task_list = {} # tid: task
         self.tid = 0
+        self.runflag = False
         index = 0
         for app in apps:
+            if not app.checkApp():
+                appmgr_log.warning('[AppMgr] APP %s is incompatible, skip'%app.name)
+                continue
             self.applist[index] = app
             app.set_id(index)
             app.log = appmgr_log
             index+=1
-        appmgr_log.debug('[AppMgr] Load apps, the number of app = %d'%len(apps))
-        self.current_app = self.applist[0]
-        self.current_app_id = 0
-        self.runflag = self.create_task()
+        appmgr_log.debug('[AppMgr] Load apps, the number of app = %s'%self.applist)
+        if len(self.applist) > 0:
+            self.current_app = self.applist[0]
+            self.current_app_id = 0
+            self.runflag = self.create_task()
     def create_task(self,app=None):
         """
         According to split function of app, split data and create small tasks, store them into task_queue

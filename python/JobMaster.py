@@ -107,7 +107,6 @@ class JobMaster(IJobMaster):
         master_log.debug('[Master] Appmgr has instanced')
         if not self.appmgr.runflag:
             # appmgr load task error, exit
-            self.stop()
             return
         #self.task_scheduler = IScheduler.SimpleScheduler(self.appmgr,self.worker_registry)
         if self.appmgr.get_current_app():
@@ -224,10 +223,11 @@ class JobMaster(IJobMaster):
                             assigned = self.task_scheduler.assignTask(recv_dict['wid'])
                             if not assigned:
                                 master_log.error('[Master] Assign task to worker_%s error, worker is not alive'%recv_dict['wid'])
+                                #TODO connect worker check if worker is alive
                             else:
                                 send_dict = {'tag':MPI_Wrapper.Tags.TASK_ADD}
                                 for tmptask in assigned:
-                                    send_dict = dict(send_dict, **tmptask)
+                                    send_dict = dict(send_dict, **({tmptask.tid:tmptask.toDict()}))
                                 self.command_q.put(send_dict)
 
                         else:
@@ -291,14 +291,14 @@ class JobMaster(IJobMaster):
             while not self.command_q.empty():
                 tmp_dict = dict(send_dict, **self.command_q.get())
                 if "tag" in tmp_dict.keys():
-                    send_dict = {tmp_dict['tag']: tmp_dict}
+                    send_dict = {tmp_dict.pop('tag'): tmp_dict}
                 else:
                     send_dict = {MPI_Wrapper.Tags.MPI_PING: tmp_dict}
             if len(send_dict) != 0:
                 send_str = json.dumps(send_dict)
                 master_log.debug('[Master] Send msg = %s'%send_str)
                 tag = send_dict.keys()[0]
-                self.server.send_string(send_str, len(send_str), send_dict[tag]['uuid'], tag)
+                self.server.send_string(send_str, len(send_str), recv_dict['uuid'], tag)
 
 
     def check_msg_integrity(self, tag, msg):
@@ -310,7 +310,8 @@ class JobMaster(IJobMaster):
         elif tag == 'health':
             return set(['CpuUsage','MemoUsage']).issubset(set(msg.keys()))
 
-
+    def getRunFlag(self):
+        return self.appmgr.runflag
 
 
 

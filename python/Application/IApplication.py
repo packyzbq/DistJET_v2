@@ -4,11 +4,12 @@ import types
 
 from python import IScheduler
 from IAPPWorker import IAPPWorker
-
-
+from IAPPWorker import TestWorker
+# TODO add init/fin call function mode
 class IApplication:
-    def __init__(self):
+    def __init__(self, rootdir, name):
         self.id = None
+        self.name = name
         self.app_boot=[]
         self.res_dir = ""   # the directory of result
         self.args = {}      # the args for app_boot
@@ -23,7 +24,16 @@ class IApplication:
         self.scheduler = None
         self.specifiedWorker = None
         self.log = None
-        self.rootdir = None
+        self.status = {'worker':False,
+                       'scheduler':False,
+                       'boot':False,
+                       'resdir':False}
+
+        if os.path.exists(rootdir):
+            self.rootdir = os.path.abspath(rootdir)
+            self.status['resdir'] = True
+            
+
     def set_id(self,id):
         self.id = id
 
@@ -34,6 +44,7 @@ class IApplication:
             return
         else:
             self.scheduler = scheduler
+            self.status['scheduler'] = True
 
     def set_worker(self, worker):
         if not callable(worker) or not issubclass(worker, IAPPWorker):
@@ -41,6 +52,7 @@ class IApplication:
             return
         else:
             self.specifiedWorker = worker
+            self.status['worker'] = True
 
     def get_scheduler(self):
         return self.scheduler
@@ -76,6 +88,16 @@ class IApplication:
             self.app_boot.extend(boot_list)
         else:
             self.app_boot.append(boot_list)
+        for boot in self.app_boot:
+            if not os.path.exists(boot):
+                if not os.path.exists(self.rootdir+'/'+boot):
+                    print('Error: Can not find boot script %s'%boot)
+                    return
+                else:
+                    self.app_boot.insert(self.app_boot.index(boot),self.rootdir+'/'+boot)
+                    self.app_boot.remove(boot)
+        self.status['boot'] = True
+
     def set_resdir(self, res_dir):
         self.res_dir = os.path.abspath(res_dir)
         if not os.path.exists(self.res_dir):
@@ -98,3 +120,15 @@ class IApplication:
         :return:
         """
         raise NotImplementedError
+
+    def checkApp(self):
+        for k,v in self.status.items():
+            if not self.status[k]:
+                if k == 'worker' and not self.specifiedWorker:
+                    print('Warning: No worker is set, use default worker')
+                    self.worker = TestWorker
+                    self.status['worker'] = True
+                    continue
+                print('Error: App %s is not allow or lack'%k)
+                return False
+        return True

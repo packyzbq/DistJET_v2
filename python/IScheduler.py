@@ -157,7 +157,7 @@ class SimpleScheduler(IScheduler):
         task_list=[]
         self.scheduled_task_list[w_entry.wid] = []
         for i in range(0,room):
-            tmptask = self.task_todo_queue.get()
+            tmptid, tmptask = self.task_todo_queue.get().items()[0]
             tmptask.assign(wid)
             task_list.append(tmptask)
             self.scheduled_task_list[wid].append(tmptask.tid)

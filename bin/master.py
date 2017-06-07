@@ -59,6 +59,7 @@ if sys.argv[2] == 'null':
     master = JobMaster(applications=applications)
 else:
     master = JobMaster(sys.argv[2],applications)
-print('@master start running')
-master.startProcessing()
+if master.getRunFlag():
+    print('@master start running')
+    master.startProcessing()
 

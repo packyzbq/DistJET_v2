@@ -85,6 +85,14 @@ class Task:
         self.args = args
         self.status = TaskStatus.INITIALIZED
 
+    def toDict(self):
+        tmpdict = {}
+        tmpdict['boot'] = self.boot
+        tmpdict['data'] = self.data
+        tmpdict['args'] = self.args
+        tmpdict['resdir'] = self.res_dir
+        return tmpdict       
+
     def status(self):
         return self.status
 

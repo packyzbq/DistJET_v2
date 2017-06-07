@@ -219,9 +219,12 @@ class WorkerAgent:
                     # add tasks v={tid:{boot:v, args:v, data:v, resdir:v}, tid:....}
                     elif int(k) == Tags.TASK_ADD:
                         wlog.debug('[WorkerAgent] Receive TASK_ADD msg = %s'%v)
-                        for tk,tv in v:
+                        for tk,tv in v.items():
                             self.task_queue.put({tk:tv})
+                            wlog.debug('[Agent] Add new task={%s:%s}'%(tk,tv))
+                        wlog.debug('[Agent] Worker Status = %d'%self.worker.status)
                         if self.worker.status == WorkerStatus.IDLE:
+                            wlog.debug('[Agent] Worker IDLE, wake up worker')
                             self.cond.acquire()
                             self.cond.notify()
                             self.cond.release()
@@ -386,7 +389,7 @@ class Worker(BaseThread):
             if self.finialized:
                 wlog.info('[Worker] Initialize error, worker terminate')
                 break
-            wlog.info('Worker Initialized, Ready to running tasks')
+            wlog.info('[Worker] Initialized, Ready to running tasks')
             self.status = WorkerStatus.RUNNING
             while not self.finialized:
                 if not self.workeragent.task_queue.empty():
@@ -398,11 +401,12 @@ class Worker(BaseThread):
                     self.do_task(v['boot'],v['args'],v['data'],v['resdir'])
                     self.workeragent.task_done(tid, self.task_status, time_start=self.start_time, time_fin=time.time(),errcode=self.returncode)
                 else:
-                    wlog.info('Worker: No task to do, Idle...')
                     self.status = WorkerStatus.IDLE
+                    wlog.info('Worker: No task to do, worker status = %d'%self.status)
                     self.cond.acquire()
                     self.cond.wait()
                     self.cond.release()
+                    wlog.debug('[Worker] I am wake')
             # do finalize
             # TODO according to Policy ,decide to force finalize or wait for all task done
             while self.status != WorkerStatus.FINALIZED:
@@ -426,7 +430,7 @@ class Worker(BaseThread):
 
 
     def initialize(self, boot, args, data, resdir, **kwargs):
-        wlog.info('Worker start to initialize...')
+        wlog.info('[Worker] Start to initialize...')
         if self.worker_obj:
             if self.worker_obj.initialize(boot=boot, args=args,data=data,resdir=resdir):
                 self.lock.acquire()
@@ -434,7 +438,7 @@ class Worker(BaseThread):
                 self.status = WorkerStatus.INITILAZED
                 self.lock.release()
             else:
-                wlog.error('Error: error occurs when initializing worker')
+                wlog.error('[Worker]Error: error occurs when initializing worker')
         elif not boot and not data:
             self.lock.acquire()
             self.initialized = True
@@ -450,10 +454,24 @@ class Worker(BaseThread):
         # TODO add result
         self.workeragent.app_ini_done(recode, status.describe(recode))
 
-    def do_task(self, boot, args, data, resdir,tid=0,**kwd):
+    def do_task(self, boot, args, data, resdir,tid=0,shell=False):
         self.running_task = tid
         self.start_time = time.time()
-        self.process = subprocess.Popen(args=[boot, args, data], stdout=self.stdout, stderr=self.stderr)
+        executable = []
+		# TODO if boot has more than one bash script
+        executable.append(boot[0])
+        if len(args) > 0:
+            for k,v in args.items():
+                executable.append(str(k))
+                if v:
+                    executable.append(str(v))
+        if len(data) > 0:
+            for k,v in data.items():
+                executable.append(str(k))
+                if v :
+                    executable.append(str(v))
+        wlog.info('[Worker] Ready to run task, %s'%executable)
+        self.process = subprocess.Popen(executable, stdout=self.stdout, stderr=self.stderr, shell=shell)
         self.pid = self.process.pid
         if len(resdir) and not os.path.exists(resdir):
             os.makedirs(resdir)
