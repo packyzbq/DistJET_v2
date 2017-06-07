@@ -47,7 +47,7 @@ class HeartbeatThread(BaseThread):
         self.worker_agent = worker_agent
         self.queue_lock = threading.RLock()
         self.acquire_queue = Queue.Queue()         # entry = key:val
-        self.interval = 10
+        self.interval = 1
         self.cond = cond
         global wlog
 

@@ -167,8 +167,9 @@ class JobMaster(IJobMaster):
             if not self.recv_buffer.empty():
                 msg = self.recv_buffer.get()
                 if msg.tag != -1:
-                    master_log.debug('[Master] Receive msg = %s' % msg.sbuf[0:msg.size])
+                    #master_log.debug('[Master] Receive msg = %s' % msg.sbuf[0:msg.size])
                     recv_dict = json.loads(msg.sbuf[0:msg.size])
+                    master_log.debug('[Master] Receive msg, keys = %s'%recv_dict.keys())
                     if recv_dict.has_key('flag'):
                         if recv_dict['flag'] == 'firstPing' and msg.tag == MPI_Wrapper.Tags.MPI_REGISTY:
                             # register worker
@@ -195,7 +196,7 @@ class JobMaster(IJobMaster):
                             self.remove_worker(recv_dict['wid'])
 
                     # normal ping msg
-                    elif recv_dict.has_key('Task'):
+                    if recv_dict.has_key('Task'):
                         # handle complete tasks
                         for tid, val in recv_dict['Task'].items():
                             # handle complete task
@@ -206,14 +207,14 @@ class JobMaster(IJobMaster):
                                     self.task_scheduler.task_failed(recv_dict['wid'], tid, val['time_start'], val['time_fin'],val['errcode'])
                             else:
                                 master_log.error('Task msg incomplete, key=%s'%val.keys())
-                    elif recv_dict.has_key('health'):
+                    if recv_dict.has_key('health'):
                         # TODO handle node health
                         pass
-                    elif recv_dict.has_key('wstatus'):
+                    if recv_dict.has_key('wstatus'):
                         wentry = self.worker_registry.get_entry(recv_dict['wid'])
                         wentry.setStatus(recv_dict['wstatus'])
 
-                    elif recv_dict.has_key(str(MPI_Wrapper.Tags.APP_INI)):
+                    if recv_dict.has_key(str(MPI_Wrapper.Tags.APP_INI)):
                         v = recv_dict[str(MPI_Wrapper.Tags.APP_INI)]
                         master_log.debug('[Master] Receive a App_INI msg = %s' % v)
                         if v['recode'] == status.SUCCESS:
@@ -231,10 +232,10 @@ class JobMaster(IJobMaster):
                                 self.command_q.put(send_dict)
                             else:
                             # terminate worker
-                            send_dict = {MPI_Wrapper.Tags.WORKER_STOP: ""}
-                            self.command_q.put(send_dict)
+                                send_dict = {MPI_Wrapper.Tags.WORKER_STOP: ""}
+                                self.command_q.put(send_dict)
 
-                    elif recv_dict.has_key(str(MPI_Wrapper.Tags.TASK_ADD)):
+                    if recv_dict.has_key(str(MPI_Wrapper.Tags.TASK_ADD)):
                         v = recv_dict[str(MPI_Wrapper.Tags.TASK_ADD)]
                         master_log.debug('[Master] Receive a TASK_ADD msg = %s'%v)
                         wentry = self.worker_registry.get_entry(recv_dict['wid'])
@@ -256,7 +257,7 @@ class JobMaster(IJobMaster):
 
                         self.command_q.put({MPI_Wrapper.Tags.TASK_ADD: task_dict, 'uuid': recv_dict['uuid']})
 
-                    elif recv_dict.has_key(str(MPI_Wrapper.Tags.APP_FIN)):
+                    if recv_dict.has_key(str(MPI_Wrapper.Tags.APP_FIN)):
                         v = recv_dict[str(MPI_Wrapper.Tags.APP_FIN)]
                         master_log.debug('[Master] Receive a APP_FIN msg = %s'%v)
                         if v['recode'] == status.SUCCESS:
