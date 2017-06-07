@@ -149,7 +149,8 @@ class IScheduler:
 
 class SimpleScheduler(IScheduler):
 
-    def assignTask(self, w_entry):
+    def assignTask(self, wid):
+        w_entry = self.worker_registry.get_entry(wid)
         if not w_entry.alive:
             return None
         room = w_entry.capacity()
@@ -157,9 +158,9 @@ class SimpleScheduler(IScheduler):
         self.scheduled_task_list[w_entry.wid] = []
         for i in range(0,room):
             tmptask = self.task_todo_queue.get()
-            tmptask.assign(w_entry.wid)
-            task_list.append(tmptask.tid)
-            self.scheduled_task_list[w_entry.wid].append(tmptask.tid)
+            tmptask.assign(wid)
+            task_list.append(tmptask)
+            self.scheduled_task_list[wid].append(tmptask.tid)
         return task_list
 
     def task_failed(self, wid, tid, time_start, time_finish, error):

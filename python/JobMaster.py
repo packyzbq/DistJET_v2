@@ -220,6 +220,16 @@ class JobMaster(IJobMaster):
                         if v['recode'] == status.SUCCESS:
                             self.task_scheduler.worker_initialized(recv_dict['wid'])
                             master_log.info('worker %d initialize successfully' % recv_dict['wid'])
+                            # assign tasks to worker
+                            assigned = self.task_scheduler.assignTask(recv_dict['wid'])
+                            if not assigned:
+                                master_log.error('[Master] Assign task to worker_%s error, worker is not alive'%recv_dict['wid'])
+                            else:
+                                send_dict = {'tag':MPI_Wrapper.Tags.TASK_ADD}
+                                for tmptask in assigned:
+                                    send_dict = dict(send_dict, **tmptask)
+                                self.command_q.put(send_dict)
+
                         else:
                             # initial worker failed
                             # TODO: Optional, add other operation
@@ -232,7 +242,7 @@ class JobMaster(IJobMaster):
                                 self.command_q.put(send_dict)
                             else:
                             # terminate worker
-                                send_dict = {MPI_Wrapper.Tags.WORKER_STOP: ""}
+                                send_dict = {'tag': MPI_Wrapper.Tags.WORKER_STOP}
                                 self.command_q.put(send_dict)
 
                     if recv_dict.has_key(str(MPI_Wrapper.Tags.TASK_ADD)):
