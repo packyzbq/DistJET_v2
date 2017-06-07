@@ -92,7 +92,7 @@ class HeartbeatThread(BaseThread):
                 send_dict['ctime'] = time.time()
                 send_dict['wstatus'] = self.worker_agent.worker.status
                 send_str = json.dumps(send_dict)
-                wlog.debug('[HeartBeat] Send msg = %s'%send_str)
+                #wlog.debug('[HeartBeat] Send msg = %s'%send_str)
                 ret = self._client.send_string(send_str, len(send_str), 0, Tags.MPI_PING)
                 if ret != 0:
                     #TODO add send error handler
@@ -398,7 +398,7 @@ class Worker(BaseThread):
                         continue
                     # TODO add task failed handle
                     tid,v = task.popitem()
-                    self.do_task(v['boot'],v['args'],v['data'],v['resdir'])
+                    self.do_task(v['boot'],v['args'],v['data'],v['resdir'], tid=int(tid))
                     self.workeragent.task_done(tid, self.task_status, time_start=self.start_time, time_fin=time.time(),errcode=self.returncode)
                 else:
                     self.status = WorkerStatus.IDLE
@@ -433,6 +433,7 @@ class Worker(BaseThread):
         wlog.info('[Worker] Start to initialize...')
         if self.worker_obj:
             if self.worker_obj.initialize(boot=boot, args=args,data=data,resdir=resdir):
+                wlog.debug('[Worker] Worker obj %s initialize'%self.worker_obj.__class__.__name__)
                 self.lock.acquire()
                 self.initialized = True
                 self.status = WorkerStatus.INITILAZED
@@ -459,6 +460,8 @@ class Worker(BaseThread):
         self.start_time = time.time()
         executable = []
 		# TODO if boot has more than one bash script
+        if boot[0].endswith('.sh') or shell:
+            executable.append("bash")
         executable.append(boot[0])
         if len(args) > 0:
             for k,v in args.items():
@@ -470,31 +473,34 @@ class Worker(BaseThread):
                 executable.append(str(k))
                 if v :
                     executable.append(str(v))
-        wlog.info('[Worker] Ready to run task, %s'%executable)
         self.process = subprocess.Popen(executable, stdout=self.stdout, stderr=self.stderr, shell=shell)
         self.pid = self.process.pid
+        wlog.info('[Worker] Pid %s run task, %s'%(self.pid,executable))
         if len(resdir) and not os.path.exists(resdir):
             os.makedirs(resdir)
-        if kwd.has_key('flag'):
-            logFile = open('%s/%s_log'%(resdir,kwd['flag']),'w+')
-        else:
-            logFile = open('%s/app_%d_task_%d'%(resdir,self.workeragent.appid,tid), 'w+')
+        #if kwd.has_key('flag'):
+        #    logFile = open('%s/%s_log'%(resdir,kwd['flag']),'w+')
+        #else:
+        logFile = open('%s/app_%d_task_%d'%(resdir,self.workeragent.appid,tid), 'w+')
         if self.worker_obj:
             self.returncode = self.worker_obj.do_work(boot=boot, args=args, data=data, resdir=resdir, logfile=logFile)
         else:
             while True:
                 fs = select.select([self.process.stdout], [], [], Conf.Config.getCFGattr('AppRespondTimeout'))
                 if not fs[0]:
+                    wlog.info('[Worker] The task has no respond, kill the task')
                     self.task_status = status.ANR
                     self.kill()
                     break
                 if self.process.stdout in fs[0]:
                     record = os.read(self.process.stdout.fileno(),1024)
+                    wlog.debug('-------fs = %s'%record)
                     if not record:
                         break
                     logFile.write(record)
                     if self.logParser:
                         if not self._parseLog(record):
+                            wlog.error('[Worker] Error occurs when run task, stop running')
                             self.task_status = status.FAIL
                             self.kill()
                             break
@@ -535,7 +541,7 @@ class Worker(BaseThread):
         self.workeragent.app_fin_done(recode,status.describe(recode))
 
     def _checkLimit(self):
-        duration = (time.time() - self.start_time).seconds
+        duration = time.time() - self.start_time
         if self.limit and duration >= self.limit:
             # Time out
             self.task_status = status.TIMEOUT
