@@ -7,6 +7,7 @@ appmgr_log = logger.getLogger('AppMgr')
 class IAppManager:
     def __init__(self, apps):
         self.applist={}     # A list of applications  id:app
+        self.app_status = {} # appid: true/false
         #self.task_queue = Queue.Queue() # tid:task
         self.task_list = {} # tid: task
         self.tid = 0
@@ -17,6 +18,7 @@ class IAppManager:
                 appmgr_log.warning('[AppMgr] APP %s is incompatible, skip'%app.name)
                 continue
             self.applist[index] = app
+            self.app_status[index] = False
             app.set_id(index)
             app.log = appmgr_log
             index+=1
@@ -101,7 +103,9 @@ class SimpleAppManager(IAppManager):
     def finalize_app(self, app=None):
         if not app:
             app = self.applist[self.current_app_id]
+        appmgr_log.info('[AppMgr] App %s finalizing'%app.name)
         app.merge(self.get_app_task_list(app))
+        self.app_status[app.id] = True
 
     def next_app(self):
         if self.current_app_id != len(self.applist)-1:

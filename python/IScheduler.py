@@ -155,7 +155,10 @@ class SimpleScheduler(IScheduler):
             return None
         room = w_entry.capacity()
         task_list=[]
-        self.scheduled_task_list[w_entry.wid] = []
+        if self.task_todo_queue.empty():
+            return None
+        if not self.scheduled_task_list.has_key(wid):
+            self.scheduled_task_list[wid] = []
         for i in range(0,room):
             tmptid, tmptask = self.task_todo_queue.get().items()[0]
             tmptask.assign(wid)

@@ -22,6 +22,7 @@ class UnitTestApp(IApplication):
         for line in case:
             startline+=1
             if 'unittest cases' in line:
+                startline+=1
                 break
         for c in case[startline:]:
             if c != '':

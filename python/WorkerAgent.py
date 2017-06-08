@@ -162,7 +162,7 @@ class WorkerAgent:
             wlog.error('[Agent] Client initialize error, errcode = %d'%ret)
             #exit()
 
-        
+        self.task_add_acquire = False 
         self.wid = None
         self.appid = None   #The running app id
         self.capacity = capacity
@@ -218,6 +218,7 @@ class WorkerAgent:
                             pass
                     # add tasks v={tid:{boot:v, args:v, data:v, resdir:v}, tid:....}
                     elif int(k) == Tags.TASK_ADD:
+                        self.task_add_acqurie = False
                         wlog.debug('[WorkerAgent] Receive TASK_ADD msg = %s'%v)
                         for tk,tv in v.items():
                             self.task_queue.put({tk:tv})
@@ -252,11 +253,15 @@ class WorkerAgent:
                         self.cond.notify()
                         self.cond.release()
 
-                    # app finalize {fin:{boot:v, args:v, data:v, resdir:v}}
+                    # app finalize {boot:v, args:v, data:v, resdir:v}
                     elif int(k) == Tags.APP_FIN:
+                        self.task_add_acquire = False
+                        if self.worker.finialized:
+                            wlog.info('[Agent] Worker has finalized, ignore this message')
+                            continue
                         wlog.debug('[WorkerAgent] Receive APP_FIN msg = %s' % v)
                         self.tmpLock.acquire()
-                        self.tmpExecutor = v['fin']
+                        self.tmpExecutor = v
                         self.tmpLock.release()
                         self.worker.finialized = True
                         if self.worker.status == WorkerStatus.IDLE:
@@ -268,8 +273,9 @@ class WorkerAgent:
                         wlog.debug('[WorkerAgent] Receive NEW_APP msg = %s' % v)
                         # TODO new app arrive, need refresh
                         pass
-            if self.task_queue.qsize() < self.capacity and (self.worker.status == WorkerStatus.INITILAZED or self.worker.status == WorkerStatus.IDLE):
+            if self.task_queue.qsize() < self.capacity and (self.worker.status == WorkerStatus.INITILAZED or self.worker.status == WorkerStatus.IDLE) and not self.task_add_acquire:
                 self.heartbeat.acquire_queue.put({Tags.TASK_ADD:self.capacity-self.task_queue.qsize()})
+                self.task_add_acquire = True
 
         self.worker.join()
         wlog.info('[WorkerAgent] Worker thread has joined')
@@ -401,7 +407,7 @@ class Worker(BaseThread):
                     self.status = WorkerStatus.RUNNING
                     tid,v = task.popitem()
                     self.do_task(v['boot'],v['args'],v['data'],v['resdir'], tid=int(tid))
-                    self.workeragent.task_done(tid, self.task_status, time_start=self.start_time, time_fin=time.time(),errcode=self.returncode)
+                    self.workeragent.task_done(tid, self.task_status, time_start=self.start_time, time_fin=self.end_time,errcode=self.returncode)
                     self.running_task = None
                 else:
                     self.status = WorkerStatus.IDLE
@@ -520,7 +526,7 @@ class Worker(BaseThread):
             self.status = status.FAIL
 
     def finalize(self, boot, args, data, resdir):
-        wlog.info('Worker start to finalize...')
+        wlog.info('[Worker] start to finalize...')
         if self.worker_obj:
             if self.worker_obj.finalize(boot=boot, args=args,data=data,resdir=resdir):
                 self.lock.acquire()

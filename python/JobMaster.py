@@ -251,14 +251,15 @@ class JobMaster(IJobMaster):
                         self.worker_registry.sync_capacity(recv_dict['wid'],int(v))
                         task_list = self.task_scheduler.assignTask(recv_dict['wid'])
                         if not task_list:
+                            master_log.debug('[Master] No more task to do, finalize worker')
                             tmp_dict = self.task_scheduler.fin_worker()
                             self.command_q.put({MPI_Wrapper.Tags.APP_FIN: tmp_dict})
-                        task_dict = {}
-                        for tmptask in task_list:
-                            task_dict[tmptask.tid] = tmptask.toDict()
-                            master_log.info('[Master] Assign task %d to worker %d' % (tmptask.tid, recv_dict['wid']))
-
-                        self.command_q.put({MPI_Wrapper.Tags.TASK_ADD: task_dict})
+                        else:
+                            task_dict = {}
+                            for tmptask in task_list:
+                                task_dict[tmptask.tid] = tmptask.toDict()
+                                master_log.info('[Master] Assign task %d to worker %d' % (tmptask.tid, recv_dict['wid']))
+                            self.command_q.put({MPI_Wrapper.Tags.TASK_ADD: task_dict})
 
                     if recv_dict.has_key(str(MPI_Wrapper.Tags.APP_FIN)):
                         v = recv_dict[str(MPI_Wrapper.Tags.APP_FIN)]
@@ -267,6 +268,7 @@ class JobMaster(IJobMaster):
                             self.task_scheduler.worker_finalized(recv_dict['wid'])
                             master_log.info('worker %d finalized')
                             # TODO if has new app, return Tags.new_app, or return Tags.Logout
+                            self.command_q.put({MPI_Wrapper.Tags.LOGOUT:""})
                         else:
                             master_log.error('worker %d finalize error, errmsg=%s' % (recv_dict['wid'], v['errmsg']))
                             if self.worker_registry.worker_refin(recv_dict['wid']):
@@ -277,8 +279,6 @@ class JobMaster(IJobMaster):
                                 self.command_q.put(send_dict)
 
 
-            if not self.task_scheduler.has_more_work() and not self.task_scheduler.has_scheduled_work():
-                self.appmgr.finalize_app()
 
             while not self.command_q.empty():
                 send_dict = self.command_q.get()
@@ -291,6 +291,12 @@ class JobMaster(IJobMaster):
                     master_log.debug('[Master] Send msg = %s'%send_str)
                     tag = send_dict.keys()[0]
                     self.server.send_string(send_str, len(send_str), recv_dict['uuid'], tag)
+            # TODO add master stop condition
+            if not self.task_scheduler.has_more_work() and not self.task_scheduler.has_scheduled_work():
+                self.appmgr.finalize_app()
+                if not self.appmgr.next_app() and self.worker_registry.size() == 0:
+                    master_log.info("[Master] Application done, stop master")
+                    self.stop()
 
 
     def check_msg_integrity(self, tag, msg):
