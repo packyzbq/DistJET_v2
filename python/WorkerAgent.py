@@ -473,7 +473,7 @@ class Worker(BaseThread):
                 executable.append(str(k))
                 if v :
                     executable.append(str(v))
-        self.process = subprocess.Popen(executable, stdout=self.stdout, stderr=self.stderr, shell=shell)
+        self.process = subprocess.Popen(executable, stdout=self.stdout, stderr=subprocess.STDOUT, shell=shell)
         self.pid = self.process.pid
         wlog.info('[Worker] Pid %s run task, %s'%(self.pid,executable))
         if len(resdir) and not os.path.exists(resdir):
@@ -494,7 +494,6 @@ class Worker(BaseThread):
                     break
                 if self.process.stdout in fs[0]:
                     record = os.read(self.process.stdout.fileno(),1024)
-                    wlog.debug('-------fs = %s'%record)
                     if not record:
                         break
                     logFile.write(record)
