@@ -146,8 +146,8 @@ class JobMaster(IJobMaster):
         if not worker:
             master_log.warning('[Master] The uuid=%s of worker has already registered', w_uuid)
         else:
-            send_dict = {'wid':worker.wid, 'appid':self.task_scheduler.appid, 'init':self.task_scheduler.init_worker(), 'tag': MPI_Wrapper.Tags.MPI_REGISTY_ACK, 'uuid':w_uuid} 
-            self.command_q.put(send_dict)
+            send_dict = {'wid':worker.wid, 'appid':self.task_scheduler.appid, 'init':self.task_scheduler.init_worker(), 'uuid':w_uuid}
+            self.command_q.put({MPI_Wrapper.Tags.MPI_REGISTY_ACK:send_dict})
             #send_str = MSG_wrapper(wid=worker.wid,appid=self.task_scheduler.appid, init=self.task_scheduler.init_worker())
             #self.server.send_string(send_str, len(send_str), w_uuid, MPI_Wrapper.Tags.MPI_REGISTY_ACK)
 
@@ -219,16 +219,16 @@ class JobMaster(IJobMaster):
                         if v['recode'] == status.SUCCESS:
                             self.task_scheduler.worker_initialized(recv_dict['wid'])
                             master_log.info('worker %d initialize successfully' % recv_dict['wid'])
-                            # assign tasks to worker
-                            assigned = self.task_scheduler.assignTask(recv_dict['wid'])
-                            if not assigned:
-                                master_log.error('[Master] Assign task to worker_%s error, worker is not alive'%recv_dict['wid'])
-                                #TODO connect worker check if worker is alive
-                            else:
-                                send_dict = {'tag':MPI_Wrapper.Tags.TASK_ADD}
-                                for tmptask in assigned:
-                                    send_dict = dict(send_dict, **({tmptask.tid:tmptask.toDict()}))
-                                self.command_q.put(send_dict)
+#                            # assign tasks to worker
+#                            assigned = self.task_scheduler.assignTask(recv_dict['wid'])
+#                            if not assigned:
+#                                master_log.error('[Master] Assign task to worker_%s error, worker is not alive'%recv_dict['wid'])
+#                                #TODO connect worker check if worker is alive
+#                            else:
+#                                send_dict = {'tag':MPI_Wrapper.Tags.TASK_ADD}
+#                                for tmptask in assigned:
+#                                    send_dict = dict(send_dict, **({tmptask.tid:tmptask.toDict()}))
+#                                self.command_q.put(send_dict)
 
                         else:
                             # initial worker failed
@@ -238,32 +238,25 @@ class JobMaster(IJobMaster):
                             if self.worker_registry.worker_reinit(v['wid']):
                                 send_dict = {'wid': v['wid'], 'appid': self.task_scheduler.appid,
                                             'init': self.task_scheduler.init_worker(),
-                                            'tag': MPI_Wrapper.Tags.MPI_REGISTY_ACK, 'uuid': recv_dict['uuid']}
-                                self.command_q.put(send_dict)
+                                            'uuid': recv_dict['uuid']}
+                                self.command_q.put({MPI_Wrapper.Tags.MPI_REGISTY_ACK:send_dict})
                             else:
                             # terminate worker
-                                send_dict = {'tag': MPI_Wrapper.Tags.WORKER_STOP}
-                                self.command_q.put(send_dict)
+                                #send_dict = {'tag': MPI_Wrapper.Tags.WORKER_STOP}
+                                self.command_q.put({MPI_Wrapper.Tags.WORKER_STOP:""})
 
                     if recv_dict.has_key(str(MPI_Wrapper.Tags.TASK_ADD)):
                         v = recv_dict[str(MPI_Wrapper.Tags.TASK_ADD)]
                         master_log.debug('[Master] Receive a TASK_ADD msg = %s'%v)
-                        wentry = self.worker_registry.get_entry(recv_dict['wid'])
-                        if v != wentry.max_capacity - wentry.assigned:
-                            wentry.alive_lock.acqurie()
-                            wentry.assigned = wentry.max_capacity - v
-                            wentry.alive_lock.release()
+                        self.worker_registry.sync_capacity(recv_dict['wid'],int(v))
                         task_list = self.task_scheduler.assignTask(self.worker_registry.get_entry(recv_dict['wid']))
                         if not task_list:
                             tmp_dict = self.task_scheduler.fin_worker()
                             self.command_q.put({MPI_Wrapper.Tags.APP_FIN: tmp_dict, 'uuid': recv_dict['uuid']})
                         task_dict = {}
-                        for tid in task_list:
-                            task_dict[tid] = {'boot': self.appmgr.get_task(tid).boot,
-                                              'args': self.appmgr.get_task(tid).args,
-                                              'data': self.appmgr.get_task(tid).data,
-                                              'resdir': self.appmgr.get_task(tid).res_dir}
-                            master_log.info('[Master] Assign task %d to worker %d' % (tid, recv_dict['wid']))
+                        for tmptask in task_list:
+                            task_dict[tmptask.tid] = tmptask.toDict()
+                            master_log.info('[Master] Assign task %d to worker %d' % (tmptask.tid, recv_dict['wid']))
 
                         self.command_q.put({MPI_Wrapper.Tags.TASK_ADD: task_dict, 'uuid': recv_dict['uuid']})
 

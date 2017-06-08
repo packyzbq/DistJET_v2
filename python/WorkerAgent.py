@@ -92,7 +92,7 @@ class HeartbeatThread(BaseThread):
                 send_dict['ctime'] = time.time()
                 send_dict['wstatus'] = self.worker_agent.worker.status
                 send_str = json.dumps(send_dict)
-                #wlog.debug('[HeartBeat] Send msg = %s'%send_str)
+                wlog.debug('[HeartBeat] Send msg = %s'%send_str)
                 ret = self._client.send_string(send_str, len(send_str), 0, Tags.MPI_PING)
                 if ret != 0:
                     #TODO add send error handler
@@ -268,7 +268,7 @@ class WorkerAgent:
                         wlog.debug('[WorkerAgent] Receive NEW_APP msg = %s' % v)
                         # TODO new app arrive, need refresh
                         pass
-            if self.task_queue.qsize() < self.capacity and self.worker.status == WorkerStatus.INITILAZED:
+            if self.task_queue.qsize() < self.capacity and (self.worker.status == WorkerStatus.INITILAZED or self.worker.status == WorkerStatus.IDLE):
                 self.heartbeat.acquire_queue.put({Tags.TASK_ADD:self.capacity-self.task_queue.qsize()})
 
         self.worker.join()
@@ -287,6 +287,7 @@ class WorkerAgent:
             # TODO add solution
 
     def task_done(self, tid, task_stat,**kwd):
+        wlog.info('[Agent] Worker finish task %d' % tid)
         tmp_dict = dict({'task_stat':task_stat},**kwd)
         self.task_completed_queue.put({tid:tmp_dict})
 
@@ -400,6 +401,7 @@ class Worker(BaseThread):
                     tid,v = task.popitem()
                     self.do_task(v['boot'],v['args'],v['data'],v['resdir'], tid=int(tid))
                     self.workeragent.task_done(tid, self.task_status, time_start=self.start_time, time_fin=time.time(),errcode=self.returncode)
+                    self.running_task = None
                 else:
                     self.status = WorkerStatus.IDLE
                     wlog.info('Worker: No task to do, worker status = %d'%self.status)

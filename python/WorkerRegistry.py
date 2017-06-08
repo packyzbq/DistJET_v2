@@ -141,5 +141,12 @@ class WorkerRegistry:
     def worker_refin(self, wid):
         return self.get_entry(wid).refin()
 
+    def sync_capacity(self, wid, capacity):
+        wentry = self.get_entry(wid)
+        if capacity != wentry.max_capacity - wentry.assigned:
+            wentry.alive_lock.acqurie()
+            wentry.assigned = wentry.max_capacity - capacity
+            wentry.alive_lock.release()
+
     def __iter__(self):
         return self.__all_workers.copy().__iter__()
