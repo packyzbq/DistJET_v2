@@ -127,7 +127,11 @@ class WorkerRegistry:
         return True
 
     def get_entry(self,wid):
-        return self.__all_workers[wid]
+        if self.__all_workers.has_key(wid):
+            return self.__all_workers[wid]
+        else:
+            print 'Can not find worker %s, this is all workers %s'%(wid, self.__all_workers.keys())
+            return None
 
     def get_by_uuid(self, w_uuid):
         return self.get_entry(self.__all_workers_uuid[w_uuid])

@@ -287,7 +287,7 @@ class WorkerAgent:
             # TODO add solution
 
     def task_done(self, tid, task_stat,**kwd):
-        wlog.info('[Agent] Worker finish task %d' % tid)
+        wlog.info('[Agent] Worker finish task %s' % tid)
         tmp_dict = dict({'task_stat':task_stat},**kwd)
         self.task_completed_queue.put({tid:tmp_dict})
 
@@ -364,6 +364,7 @@ class Worker(BaseThread):
         self.limit=None
         self.virLimit = None
         self.start_time = None
+        self.end_time = None
 
         self.lock = threading.RLock()
 
@@ -391,13 +392,13 @@ class Worker(BaseThread):
                 wlog.info('[Worker] Initialize error, worker terminate')
                 break
             wlog.info('[Worker] Initialized, Ready to running tasks')
-            self.status = WorkerStatus.RUNNING
             while not self.finialized:
                 if not self.workeragent.task_queue.empty():
                     task = self.workeragent.task_queue.get()
                     if task in self.workeragent.ignoreTask:
                         continue
                     # TODO add task failed handle
+                    self.status = WorkerStatus.RUNNING
                     tid,v = task.popitem()
                     self.do_task(v['boot'],v['args'],v['data'],v['resdir'], tid=int(tid))
                     self.workeragent.task_done(tid, self.task_status, time_start=self.start_time, time_fin=time.time(),errcode=self.returncode)
@@ -508,6 +509,9 @@ class Worker(BaseThread):
                     if not self._checkLimit():
                         break
             self.returncode = self.process.wait()
+            self.end_time = time.time()
+            wlog.info('[Worker] Task %d have finished, start in %s, end in %s'%(tid,time.strftime("%H:%M:%S",time.localtime(self.start_time)),time.strftime("%H:%M:%S",time.localtime(self.end_time))))
+            self.running_task = None
         if self.status:
             return
         if 0 == self.returncode:

@@ -249,16 +249,16 @@ class JobMaster(IJobMaster):
                         v = recv_dict[str(MPI_Wrapper.Tags.TASK_ADD)]
                         master_log.debug('[Master] Receive a TASK_ADD msg = %s'%v)
                         self.worker_registry.sync_capacity(recv_dict['wid'],int(v))
-                        task_list = self.task_scheduler.assignTask(self.worker_registry.get_entry(recv_dict['wid']))
+                        task_list = self.task_scheduler.assignTask(recv_dict['wid'])
                         if not task_list:
                             tmp_dict = self.task_scheduler.fin_worker()
-                            self.command_q.put({MPI_Wrapper.Tags.APP_FIN: tmp_dict, 'uuid': recv_dict['uuid']})
+                            self.command_q.put({MPI_Wrapper.Tags.APP_FIN: tmp_dict})
                         task_dict = {}
                         for tmptask in task_list:
                             task_dict[tmptask.tid] = tmptask.toDict()
                             master_log.info('[Master] Assign task %d to worker %d' % (tmptask.tid, recv_dict['wid']))
 
-                        self.command_q.put({MPI_Wrapper.Tags.TASK_ADD: task_dict, 'uuid': recv_dict['uuid']})
+                        self.command_q.put({MPI_Wrapper.Tags.TASK_ADD: task_dict})
 
                     if recv_dict.has_key(str(MPI_Wrapper.Tags.APP_FIN)):
                         v = recv_dict[str(MPI_Wrapper.Tags.APP_FIN)]
@@ -271,7 +271,7 @@ class JobMaster(IJobMaster):
                             master_log.error('worker %d finalize error, errmsg=%s' % (recv_dict['wid'], v['errmsg']))
                             if self.worker_registry.worker_refin(recv_dict['wid']):
                                 tmp_dict = self.task_scheduler.fin_worker()
-                                self.command_q.put({MPI_Wrapper.Tags.APP_FIN: tmp_dict, 'uuid': recv_dict['uuid']})
+                                self.command_q.put({MPI_Wrapper.Tags.APP_FIN: tmp_dict})
                             else:
                                 send_dict = {MPI_Wrapper.Tags.WORKER_STOP: ""}
                                 self.command_q.put(send_dict)
@@ -280,18 +280,17 @@ class JobMaster(IJobMaster):
             if not self.task_scheduler.has_more_work() and not self.task_scheduler.has_scheduled_work():
                 self.appmgr.finalize_app()
 
-            send_dict = {}
             while not self.command_q.empty():
-                tmp_dict = dict(send_dict, **self.command_q.get())
-                if "tag" in tmp_dict.keys():
-                    send_dict = {tmp_dict.pop('tag'): tmp_dict}
-                else:
-                    send_dict = {MPI_Wrapper.Tags.MPI_PING: tmp_dict}
-            if len(send_dict) != 0:
-                send_str = json.dumps(send_dict)
-                master_log.debug('[Master] Send msg = %s'%send_str)
-                tag = send_dict.keys()[0]
-                self.server.send_string(send_str, len(send_str), recv_dict['uuid'], tag)
+                send_dict = self.command_q.get()
+#                if "tag" in tmp_dict.keys():
+#                    send_dict = {tmp_dict.pop('tag'): tmp_dict}
+#                else:
+#                    send_dict = {MPI_Wrapper.Tags.MPI_PING: tmp_dict}
+                if len(send_dict) != 0:
+                    send_str = json.dumps(send_dict)
+                    master_log.debug('[Master] Send msg = %s'%send_str)
+                    tag = send_dict.keys()[0]
+                    self.server.send_string(send_str, len(send_str), recv_dict['uuid'], tag)
 
 
     def check_msg_integrity(self, tag, msg):
