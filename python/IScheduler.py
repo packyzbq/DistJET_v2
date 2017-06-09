@@ -67,8 +67,16 @@ class IScheduler:
         """
         return not self.task_todo_queue.empty()
 
-    def has_scheduled_work(self):
-        return len(self.scheduled_task_list)!=0
+    def has_scheduled_work(self,wid=None):
+        if wid:
+            return len(self.scheduled_task_list[wid])!=0
+        else:
+            flag = False
+            for k in self.scheduled_task_list.keys():
+                if len(self.scheduled_task_list[k]) != 0:
+                    flag = True
+                    break
+        return flag
 
     def task_failed(self, wid, tid, time_start, time_finish, error):
         """
@@ -172,12 +180,16 @@ class SimpleScheduler(IScheduler):
         self.task_todo_queue.put(tmptask)
         if tid in self.scheduled_task_list[wid]:
             self.scheduled_task_list[wid].remove(tid)
+        scheduler_log.info('[Scheduler] Task %d failed'%tid)
+        scheduler_log.debug('[Scheduler] Task %d failed, add into todo_queue, remove from scheduled_task_list, now task_list=%s'%(tid,self.scheduled_task_list))
 
     def task_completed(self, wid, tid, time_start, time_finish):
         tmptask = self.appmgr.get_task(tid)
         tmptask.complete(time_start,time_finish)
         if tid in self.scheduled_task_list[wid]:
             self.scheduled_task_list[wid].remove(tid)
+        scheduler_log.info('[Scheduler] Task %d complete')
+        scheduler_log.debug('[Scheduler] Task %d complete, remove form scheduled_task_list, now = %s'%(tid, self.scheduled_task_list))
 
     def worker_initialized(self, wid):
         entry = self.worker_registry.get_entry(wid)

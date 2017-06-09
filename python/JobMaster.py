@@ -182,7 +182,7 @@ class JobMaster(IJobMaster):
                             else:
                                 master_log.error('firstPing msg incomplete, key=%s'%recv_dict.keys())
                             #self.command_q.put({MPI_Wrapper.Tags.APP_INI: self.appmgr.get_app_init(self.appmgr.current_app_id), 'uuid':recv_dict['uuid']})
-                        elif recv_dict['flag'] == 'lastPing' and msg.tag == MPI_Wrapper.Tags.MPI_DISCONNECT:
+                        elif recv_dict['flag'] == 'lastPing':
                             # last ping from worker, sync completed task, report node's health, logout and disconnect worker
                             master_log.debug('[Master] Receive DISCONNECT msg = %s' % recv_dict)
                             for tid, val in recv_dict['Task']:
