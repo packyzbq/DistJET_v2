@@ -29,7 +29,8 @@ agent = {}
 agent[0] = WorkerAgent.WorkerAgent(sys.argv[3],capacity)
 agent[0].run()
 import threading
-print('Worker Agent exit, remains %d thread running'%threading.active_count())
+print('Worker Agent exit, remains %d thread running, threads list = %s'%(threading.active_count(),threading.enumerate()))
+exit()
 '''
 for i in range(0,worker_num):
     agent[i] = WorkerAgent.WorkerAgent(sys.argv[3],capacity)

@@ -112,7 +112,7 @@ class WorkerRegistry:
             wRegistery_log.warning('attempt to remove not registered worker: wid=%d', wid)
             return False
         else:
-            if not self.__all_workers[wid].alive:
+            if self.__all_workers[wid].alive:
                 wRegistery_log.error('attempt to remove alive worker: wid=%d',wid)
                 return False
             wRegistery_log.info('worker removed: wid=%d',wid)
@@ -130,7 +130,7 @@ class WorkerRegistry:
         if self.__all_workers.has_key(wid):
             return self.__all_workers[wid]
         else:
-            print 'Can not find worker %s, this is all workers %s'%(wid, self.__all_workers.keys())
+            #print 'Can not find worker %s, this is all workers %s'%(wid, self.__all_workers.keys())
             return None
 
     def get_by_uuid(self, w_uuid):

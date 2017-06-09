@@ -63,7 +63,7 @@ class IAppManager:
         return self.task_list
 
     def get_task(self, tid):
-        return self.task_list[tid]
+        return self.task_list[int(tid)]
 
     def get_app_init(self, appid):
         if not appid in self.applist.keys():

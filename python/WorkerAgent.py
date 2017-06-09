@@ -283,19 +283,19 @@ class WorkerAgent:
         self.stop()
 
     def stop(self):
-        wlog.info('[WorkerAgent] Agent stop...')
         self.__should_stop_flag = True
         if self.heartbeat:
             self.heartbeat.stop()
             self.heartbeat.join()
         ret = self.client.stop()
+        wlog.info('[WorkerAgent] Agent stop..., exit code = %d'%ret)
         if ret != 0:
             wlog.error('[WorkerAgent] Client stop error, errcode = %d'%ret)
             # TODO add solution
 
     def task_done(self, tid, task_stat,**kwd):
-        wlog.info('[Agent] Worker finish task %s' % tid)
         tmp_dict = dict({'task_stat':task_stat},**kwd)
+        wlog.info('[Agent] Worker finish task %s, %s' % (tid,tmp_dict))
         self.task_completed_queue.put({tid:tmp_dict})
 
     def app_ini_done(self,returncode,errmsg=None, result=None):
@@ -470,6 +470,7 @@ class Worker(BaseThread):
     def do_task(self, boot, args, data, resdir,tid=0,shell=False):
         self.running_task = tid
         self.start_time = time.time()
+        self.task_status = None
         executable = []
 		# TODO if boot has more than one bash script
         if boot[0].endswith('.sh') or shell:
@@ -521,12 +522,12 @@ class Worker(BaseThread):
             self.end_time = time.time()
             wlog.info('[Worker] Task %d have finished, start in %s, end in %s'%(tid,time.strftime("%H:%M:%S",time.localtime(self.start_time)),time.strftime("%H:%M:%S",time.localtime(self.end_time))))
             self.running_task = None
-        if self.status:
+        if self.task_status:
             return
         if 0 == self.returncode:
-            self.status = status.SUCCESS
+            self.task_status = status.SUCCESS
         else:
-            self.status = status.FAIL
+            self.task_status = status.FAIL
 
     def finalize(self, boot, args, data, resdir):
         wlog.info('[Worker] start to finalize...')

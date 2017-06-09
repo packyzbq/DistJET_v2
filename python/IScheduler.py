@@ -65,6 +65,8 @@ class IScheduler:
         Return ture if current app has more work( when the number of works of app is larger than sum of workers' capacities)
         :return: bool
         """
+        #if not self.task_todo_queue.empty():
+            #scheduler_log.debug('task_todo_quue has task num = %d'%self.task_todo_queue.qsize())
         return not self.task_todo_queue.empty()
 
     def has_scheduled_work(self,wid=None):
@@ -74,6 +76,7 @@ class IScheduler:
             flag = False
             for k in self.scheduled_task_list.keys():
                 if len(self.scheduled_task_list[k]) != 0:
+                    #scheduler_log.debug('worker %d has task %s'%(k,self.scheduled_task_list[k]))
                     flag = True
                     break
         return flag
@@ -174,22 +177,26 @@ class SimpleScheduler(IScheduler):
             self.scheduled_task_list[wid].append(tmptask.tid)
         return task_list
 
-    def task_failed(self, wid, tid, time_start, time_finish, error):
+    def task_failed(self, u_wid, u_tid, time_start, time_finish, error):
+        tid = int(u_tid)
+        wid = int(u_wid)
         tmptask = self.appmgr.get_task(tid)
         tmptask.fail(time_start,time_finish,error)
         self.task_todo_queue.put(tmptask)
         if tid in self.scheduled_task_list[wid]:
             self.scheduled_task_list[wid].remove(tid)
-        scheduler_log.info('[Scheduler] Task %d failed'%tid)
-        scheduler_log.debug('[Scheduler] Task %d failed, add into todo_queue, remove from scheduled_task_list, now task_list=%s'%(tid,self.scheduled_task_list))
+        scheduler_log.info('[Scheduler] Task %s failed, errmsg = %s'%(tid,error))
+        scheduler_log.debug('[Scheduler] Task %s failed, add into todo_queue, remove from scheduled_task_list, now task_list=%s'%(tid,self.scheduled_task_list))
 
-    def task_completed(self, wid, tid, time_start, time_finish):
+    def task_completed(self, u_wid, u_tid, time_start, time_finish):
+        tid = int(u_tid)
+        wid = int(u_wid)
         tmptask = self.appmgr.get_task(tid)
         tmptask.complete(time_start,time_finish)
         if tid in self.scheduled_task_list[wid]:
             self.scheduled_task_list[wid].remove(tid)
-        scheduler_log.info('[Scheduler] Task %d complete')
-        scheduler_log.debug('[Scheduler] Task %d complete, remove form scheduled_task_list, now = %s'%(tid, self.scheduled_task_list))
+        scheduler_log.info('[Scheduler] Task %s complete'%tid)
+        scheduler_log.debug('[Scheduler] Task %s complete, remove form scheduled_task_list, now = %s'%(tid, self.scheduled_task_list))
 
     def worker_initialized(self, wid):
         entry = self.worker_registry.get_entry(wid)

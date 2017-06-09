@@ -188,9 +188,9 @@ class JobMaster(IJobMaster):
                             for tid, val in recv_dict['Task']:
                                 # handle complete task
                                 if self.check_msg_integrity('Task',val):
-                                    if val['task_stat'] == TaskStatus.COMPLETED:
+                                    if val['task_stat'] == status.SUCCESS:
                                         self.task_scheduler.task_completed(recv_dict['wid'], tid, val['time_start'], val['time_fin'])
-                                    elif val['task_stat'] == TaskStatus.FAILED:
+                                    elif val['task_stat'] in [status.FAIL, status.TIMEOUT, status.OVERFLOW, status.ANR]:
                                         self.task_scheduler.task_failed(recv_dict['wid'], tid, val['time_start'], val['time_fin'],val['errcode'])
                                 else:
                                     master_log.error('Task msg incomplete, key=%s'%val.keys())
@@ -203,10 +203,12 @@ class JobMaster(IJobMaster):
                         for tid, val in recv_dict['Task'].items():
                             # handle complete task
                             if self.check_msg_integrity('Task',val):
-                                if val['task_stat'] == TaskStatus.COMPLETED:
+                                if val['task_stat'] == status.SUCCESS:
                                     self.task_scheduler.task_completed(recv_dict['wid'], tid, val['time_start'], val['time_fin'])
-                                elif val['task_stat'] == TaskStatus.FAILED:
+                                elif val['task_stat'] in [status.FAIL, status.TIMEOUT, status.OVERFLOW, status.ANR]:
                                     self.task_scheduler.task_failed(recv_dict['wid'], tid, val['time_start'], val['time_fin'],val['errcode'])
+                                else:
+                                    master_log.warning('[Master] Can not recognize the task status %s of Task %s'%(val['task_stat'],tid))
                             else:
                                 master_log.error('Task msg incomplete, key=%s'%val.keys())
                     if recv_dict.has_key('health'):
@@ -214,7 +216,8 @@ class JobMaster(IJobMaster):
                         pass
                     if recv_dict.has_key('wstatus'):
                         wentry = self.worker_registry.get_entry(recv_dict['wid'])
-                        wentry.setStatus(recv_dict['wstatus'])
+                        if wentry:
+                            wentry.setStatus(recv_dict['wstatus'])
 
                     if recv_dict.has_key(str(MPI_Wrapper.Tags.APP_INI)):
                         v = recv_dict[str(MPI_Wrapper.Tags.APP_INI)]
@@ -295,7 +298,10 @@ class JobMaster(IJobMaster):
                     tag = send_dict.keys()[0]
                     self.server.send_string(send_str, len(send_str), recv_dict['uuid'], tag)
             # TODO add master stop condition
+            time.sleep(1)
+            master_log.debug('stop condition: %s,%s'%(self.task_scheduler.has_more_work(),self.task_scheduler.has_scheduled_work()))
             if not self.task_scheduler.has_more_work() and not self.task_scheduler.has_scheduled_work():
+                master_log.debug('[Master] Finalize app')
                 self.appmgr.finalize_app()
                 if not self.appmgr.next_app() and self.worker_registry.size() == 0:
                     master_log.info("[Master] Application done, stop master")
