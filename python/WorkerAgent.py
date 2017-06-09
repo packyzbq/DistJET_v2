@@ -123,7 +123,7 @@ class HeartbeatThread(BaseThread):
         send_dict['wstatus'] = self.worker_agent.worker.status
         send_str = json.dumps(send_dict)
         wlog.debug('[HeartBeat] Send msg = %s'%send_str)
-        ret = self._client.send_string(send_str, len(send_str), 0, Tags.MPI_DISCONNECT)
+        ret = self._client.send_string(send_str, len(send_str), 0, Tags.MPI_PING)
         if ret != 0:
             #TODO add send error handler
             pass
@@ -186,7 +186,7 @@ class WorkerAgent:
         wlog.debug('[Agent] WorkerAgent run...')
         self.heartbeat.start()
         wlog.debug('[WorkerAgent] HeartBeat thread start...')
-        while True:
+        while not self.__should_stop_flag:
             time.sleep(1)
             if not self.recv_buff.empty():
                 msg = self.recv_buff.get()
@@ -218,7 +218,7 @@ class WorkerAgent:
                             pass
                     # add tasks v={tid:{boot:v, args:v, data:v, resdir:v}, tid:....}
                     elif int(k) == Tags.TASK_ADD:
-                        self.task_add_acqurie = False
+                        self.task_add_acquire = False
                         wlog.debug('[WorkerAgent] Receive TASK_ADD msg = %s'%v)
                         for tk,tv in v.items():
                             self.task_queue.put({tk:tv})
@@ -245,7 +245,7 @@ class WorkerAgent:
                         self.cond.release()
                         # stop worker agent
                         #self.heartbeat.acquire_queue.put({Tags.LOGOUT_ACK:self.wid})
-                        break
+                        self.__should_stop_flag = True
                     elif int(k) == Tags.WORKER_STOP:
                         wlog.debug('[Agent] Receive WORKER_STOP msg = %s'%v)
                         self.worker.terminate()
@@ -273,10 +273,11 @@ class WorkerAgent:
                         wlog.debug('[WorkerAgent] Receive NEW_APP msg = %s' % v)
                         # TODO new app arrive, need refresh
                         pass
-            if self.task_queue.qsize() < self.capacity and (self.worker.status == WorkerStatus.INITILAZED or self.worker.status == WorkerStatus.IDLE) and not self.task_add_acquire:
+            if self.task_queue.qsize() < self.capacity and not self.task_add_acquire and not self.worker.finialized:
+                wlog.debug('[Agent] Worker need more tasks')
                 self.heartbeat.acquire_queue.put({Tags.TASK_ADD:self.capacity-self.task_queue.qsize()})
                 self.task_add_acquire = True
-
+        wlog.debug('[Agent] Wait for worker thread join')
         self.worker.join()
         wlog.info('[WorkerAgent] Worker thread has joined')
         self.stop()
@@ -426,6 +427,8 @@ class Worker(BaseThread):
                 self.cond.acquire()
                 self.cond.wait()
                 self.cond.release()
+                wlog.debug('[Worker] I am wake up, ready to stop')
+            self.stop()
             #self.workeragent.app_fin_done(self.returncode, status.describe(self.returncode))
 
 
@@ -540,7 +543,9 @@ class Worker(BaseThread):
             #self.finialized = True
             self.status = WorkerStatus.FINALIZED
             self.lock.release()
-            return 0
+            wlog.debug('[Worker] Worker has finalized')
+            self.returncode = status.SUCCESS
+            
         else:
             if self.do_task(boot, args, data, resdir, flag='fin') == status.SUCCESS:
                 self.lock.acquire()
@@ -548,8 +553,7 @@ class Worker(BaseThread):
                 self.status = WorkerStatus.FINALIZED
                 self.lock.release()
         # TODO add finalize result record
-        recode = status.SUCCESS if self.finialized else status.FAIL
-        self.workeragent.app_fin_done(recode,status.describe(recode))
+        self.workeragent.app_fin_done(self.returncode,status.describe(self.returncode))
 
     def _checkLimit(self):
         duration = time.time() - self.start_time

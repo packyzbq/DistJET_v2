@@ -167,6 +167,9 @@ class JobMaster(IJobMaster):
                 msg = self.recv_buffer.get()
                 if msg.tag != -1:
                     #master_log.debug('[Master] Receive msg = %s' % msg.sbuf[0:msg.size])
+                    if msg.tag == MPI_Wrapper.Tags.MPI_DISCONNECT:
+                        master_log.info("[Master] Agent disconnect")
+                        continue
                     recv_dict = json.loads(msg.sbuf[0:msg.size])
                     master_log.debug('[Master] Receive msg, keys = %s'%recv_dict.keys())
                     if recv_dict.has_key('flag'):
@@ -266,7 +269,7 @@ class JobMaster(IJobMaster):
                         master_log.debug('[Master] Receive a APP_FIN msg = %s'%v)
                         if v['recode'] == status.SUCCESS:
                             self.task_scheduler.worker_finalized(recv_dict['wid'])
-                            master_log.info('worker %d finalized')
+                            master_log.info('worker %s finalized'%recv_dict['wid'])
                             # TODO if has new app, return Tags.new_app, or return Tags.Logout
                             self.command_q.put({MPI_Wrapper.Tags.LOGOUT:""})
                         else:
