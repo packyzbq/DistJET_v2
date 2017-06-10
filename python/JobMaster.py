@@ -125,9 +125,10 @@ class JobMaster(IJobMaster):
         self.__stop = False
 
     def stop(self):
-        if self.task_scheduler and self.task_scheduler.isAlive():
-            self.task_scheduler.join()
-            master_log.info('[Master] TaskScheduler has joined')
+        # TaskScheduler is not a thread
+        #if self.task_scheduler and self.task_scheduler.is_alive():
+        #    self.task_scheduler.join()
+        #    master_log.info('[Master] TaskScheduler has joined')
         if self.control_thread and self.control_thread.isAlive():
             self.control_thread.stop()
             self.control_thread.join()
@@ -299,7 +300,6 @@ class JobMaster(IJobMaster):
                     self.server.send_string(send_str, len(send_str), recv_dict['uuid'], tag)
             # TODO add master stop condition
             time.sleep(1)
-            master_log.debug('stop condition: %s,%s'%(self.task_scheduler.has_more_work(),self.task_scheduler.has_scheduled_work()))
             if not self.task_scheduler.has_more_work() and not self.task_scheduler.has_scheduled_work():
                 master_log.debug('[Master] Finalize app')
                 self.appmgr.finalize_app()

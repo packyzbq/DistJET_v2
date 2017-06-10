@@ -281,6 +281,7 @@ class WorkerAgent:
         self.worker.join()
         wlog.info('[WorkerAgent] Worker thread has joined')
         self.stop()
+        wlog.debug('[Agent] remains %d alive thread, [%s]'%(threading.active_count(), threading.enumerate()))
 
     def stop(self):
         self.__should_stop_flag = True
@@ -429,6 +430,7 @@ class Worker(BaseThread):
                 self.cond.release()
                 wlog.debug('[Worker] I am wake up, ready to stop')
             self.stop()
+            wlog.debug('[Worker] Remains %d thread alive, [%s]'%(threading.active_count(), threading.enumerate()))
             #self.workeragent.app_fin_done(self.returncode, status.describe(self.returncode))
 
 

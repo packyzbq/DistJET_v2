@@ -72,6 +72,7 @@ else:
 # this is the plan A-> each workerAgent has one worker
 print('mpiexec -n %s python $DistJETPATH/bin/worker.py %s'%(opts.worker_num,parg))
 os.system("mpiexec -n %s python $DistJETPATH/bin/worker.py %s"%(opts.worker_num,parg))
+print("worker stop...")
 
 
 

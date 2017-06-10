@@ -10,6 +10,7 @@ class IAppManager:
         self.app_status = {} # appid: true/false
         #self.task_queue = Queue.Queue() # tid:task
         self.task_list = {} # tid: task
+        self.app_task_list = {} # appid: task_list(list of task obj)
         self.tid = 0
         self.runflag = False
         index = 0
@@ -26,7 +27,7 @@ class IAppManager:
         if len(self.applist) > 0:
             self.current_app = self.applist[0]
             self.current_app_id = 0
-            self.runflag = self.create_task()
+            self.runflag = self.gen_task_list()
     def create_task(self,app=None):
         """
         According to split function of app, split data and create small tasks, store them into task_queue
@@ -57,10 +58,10 @@ class IAppManager:
 
     def get_app_task_list(self, app=None):
         if not app:
-            return self.task_list
-        if len(self.task_list)==0 or app == self.current_app:
-            self.create_task(app)
-        return self.task_list
+            app = self.current_app
+        if app.id not in self.app_task_list.keys():
+            self.gen_task_list(app)
+        return self.app_task_list[app.id]
 
     def get_task(self, tid):
         return self.task_list[int(tid)]
@@ -79,11 +80,20 @@ class IAppManager:
         app = self.applist[appid]
         return dict({'boot':app.app_fin_boot, 'resdir': app.res_dir},**app.app_fin_extra)
 
+    def gen_task_list(self, app=None):
+        if not app:
+            app = self.applist[self.current_app_id]
+        tmp_tasklist = self.create_task(app)
+        if tmp_tasklist:
+            self.app_task_list[app.id] = tmp_tasklist
+            appmgr_log.info('[AppMgr] App %d, Create %d tasks'%(app.id,len(self.app_task_list[app.id])))
+            return True
+        else:
+            return False
+
 class SimpleAppManager(IAppManager):
 
     def create_task(self, app=None):
-        if not app:
-            app = self.applist[self.current_app_id]
         data = app.split()
         for k,v in data.items():
             # create tasks, and store in task_queue
@@ -94,16 +104,16 @@ class SimpleAppManager(IAppManager):
             self.task_list[task.tid] = task
         if len(self.task_list) == 0 and len(data) == 0:
             appmgr_log.error('[AppMgr]: Create 0 task, check app split() method')
-            return False
+            return None
         else:
-            appmgr_log.info('[AppMgr] App %d, Create %d tasks'%(app.id,len(data)))
-            return True
+            return self.task_list
         
 
     def finalize_app(self, app=None):
         if not app:
             app = self.applist[self.current_app_id]
         appmgr_log.info('[AppMgr] App %s finalizing'%app.name)
+        appmgr_log.debug('[AppMgr] AppMgr merge tasks= %s'%self.get_app_task_list(app))
         app.merge(self.get_app_task_list(app))
         self.app_status[app.id] = True
 

@@ -44,23 +44,27 @@ class UnitTestApp(IApplication):
                 self.task_reslist[id] = False
             with open(self.res_dir+'/summary.log', 'a+')as resfile:
                 if self.task_reslist[id]:
-                    resfile.writelines(tasklist[id].getdata.keys()[0] + '   SUCCESS\n')
+                    resfile.writelines(tasklist[id].getdata().keys()[0] + '   SUCCESS\n')
                 else:
-                    resfile.writelines(tasklist[id].getdata.keys()[0] + '   Error\n')
+                    resfile.writelines(tasklist[id].getdata().keys()[0] + '   Error\n')
 
 
     def analyze_log(self, logname):
-        with open(self.res_dir + '/result_' + str(logname)) as logfile:
+        logpath = self.res_dir+'/app_%s_task_%s'%(self.id,logname)
+        if not os.path.exists(logpath):
+            self.log.error('[%s] error occurs when analyze log file %s'%(self.name,logpath))
+            return False
+        with open(logpath) as logfile:
             for line in logfile:
                 if line.find('ERROR') != -1:
                     return False
                 else:
-                    with open(self.res_dir + '/error_' + str(logname), 'r+') as file:
-                        if len(file.read()) == 0:
-                            return True
-                        else:
-                            return False
-
-
+                    return True
+                    #with open(self.res_dir + '/error_' + str(logname), 'r+') as file:
+                    #    if len(file.read()) == 0:
+                    #        return True
+                    #    else:
+                    #        return False
+        
 if __name__ == '__main__':
     app = UnitTestApp()
