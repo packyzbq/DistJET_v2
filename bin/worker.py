@@ -1,9 +1,9 @@
 import sys,os
 sys.path.append(os.getenv('DistJETPATH'))
 import subprocess
-#argv[1] = num, argv[2]=capacity, argv[3]=conf_file
-if len(sys.argv) <= 3:
-    print('@worker, need at least 3 parameter(given %d), exit'%(len(argv)-1))
+#argv[1]=capacity, argv[2]=conf_file
+if len(sys.argv) <= 2:
+    print('@worker, need at least 2 parameter(given %d), exit'%(len(sys.argv)-1))
     exit()
 
 if 'Boost' not in os.environ['PATH']:
@@ -16,17 +16,16 @@ else:
 
 import python.Util.Conf as Conf
 Conf.Config.setCfg('Rundir',os.getcwd())
-if sys.argv[3] != 'null' and os.path.exists(sys.argv[3]):
-    Conf.set_inipath(os.path.abspath(sys.argv[3]))
+if sys.argv[2] != 'null' and os.path.exists(sys.argv[2]):
+    Conf.set_inipath(os.path.abspath(sys.argv[2]))
 
 from python import WorkerAgent
-worker_num = int(sys.argv[1])
-capacity = int(sys.argv[2])
+capacity = int(sys.argv[1])
 agent = {}
 
 # TODO: add multiprocess pool
 # pool = multiprocessing.Pool(processes=worker_num)
-agent[0] = WorkerAgent.WorkerAgent(sys.argv[3],capacity)
+agent[0] = WorkerAgent.WorkerAgent(sys.argv[2],capacity)
 agent[0].run()
 import threading
 print('Worker Agent exit, remains %d thread running, threads list = %s'%(threading.active_count(),threading.enumerate()))
