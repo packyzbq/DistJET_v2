@@ -23,12 +23,11 @@ if sys.argv[2] != 'null' and os.path.exists(sys.argv[2]):
 
 from python import WorkerAgent
 capacity = int(sys.argv[1])
-agent = {}
 
 # TODO: add multiprocess pool
 # pool = multiprocessing.Pool(processes=worker_num)
-agent[0] = WorkerAgent.WorkerAgent(sys.argv[2],capacity)
-agent[0].run()
+agent = WorkerAgent.WorkerAgent(sys.argv[2],capacity)
+agent.run()
 import threading
 print('Worker Agent exit, remains %d thread running, threads list = %s'%(threading.active_count(),threading.enumerate()))
 exit()

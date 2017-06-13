@@ -61,8 +61,7 @@ if opts.capacity_file:
                 cap_list[line.split(' ')[0]] = line.split(' ')[1]
 '''
 if opts.capacity:
-    parg+=""+opts.capacity
-
+    parg=""+opts.capacity
 if not opts.conf_file or not os.path.exists(opts.conf_file):
     print 'No config file input, use default configuration'
     parg+=' null'
