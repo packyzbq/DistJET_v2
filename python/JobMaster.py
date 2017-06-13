@@ -162,7 +162,6 @@ class JobMaster(IJobMaster):
 
     def startProcessing(self):
                 # TODO add start worker command
-
         while not self.__stop:
             if not self.recv_buffer.empty():
                 msg = self.recv_buffer.get()
@@ -172,7 +171,7 @@ class JobMaster(IJobMaster):
                         master_log.info("[Master] Agent disconnect")
                         continue
                     recv_dict = json.loads(msg.sbuf[0:msg.size])
-                    master_log.debug('[Master] Receive msg, keys = %s'%recv_dict.keys())
+                    master_log.debug('[Master] Receive msg from worker %s, keys = %s'%(recv_dict['wid'] if recv_dict.has_key('wid') else None,recv_dict.keys()))
                     if recv_dict.has_key('flag'):
                         if recv_dict['flag'] == 'firstPing' and msg.tag == MPI_Wrapper.Tags.MPI_REGISTY:
                             # register worker
@@ -298,10 +297,10 @@ class JobMaster(IJobMaster):
                     master_log.debug('[Master] Send msg = %s'%send_str)
                     tag = send_dict.keys()[0]
                     self.server.send_string(send_str, len(send_str), recv_dict['uuid'], tag)
-            # TODO add master stop condition
-            time.sleep(1)
+            # master stop condition
+            #time.sleep(1)
             if not self.task_scheduler.has_more_work() and not self.task_scheduler.has_scheduled_work():
-                master_log.debug('[Master] Finalize app')
+                # TODO master_log.debug('[Master] Finalize app ')
                 self.appmgr.finalize_app()
                 if not self.appmgr.next_app() and self.worker_registry.size() == 0:
                     master_log.info("[Master] Application done, stop master")

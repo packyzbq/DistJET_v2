@@ -47,7 +47,7 @@ class IAppManager:
         The application operations when all tasks are finished
         :return:
         """
-        raise NotImplementedError
+        self.app_status[app.id] = True
 
     def next_app(self):
         """
@@ -112,11 +112,12 @@ class SimpleAppManager(IAppManager):
     def finalize_app(self, app=None):
         if not app:
             app = self.applist[self.current_app_id]
-        appmgr_log.info('[AppMgr] App %s finalizing'%app.name)
-        appmgr_log.debug('[AppMgr] AppMgr merge tasks= %s'%self.get_app_task_list(app))
-        app.merge(self.get_app_task_list(app))
-        self.app_status[app.id] = True
-
+        if not self.app_status[app.id]:
+            appmgr_log.info('[AppMgr] App %s finalizing'%app.name)
+            appmgr_log.debug('[AppMgr] AppMgr merge tasks= %s'%self.get_app_task_list(app))
+            app.merge(self.get_app_task_list(app))
+            IAppManager.finalize_app(self,app)
+        
     def next_app(self):
         if self.current_app_id != len(self.applist)-1:
             self.current_app_id += 1
