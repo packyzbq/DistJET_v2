@@ -21,7 +21,6 @@ class IAppManager:
             self.applist[index] = app
             self.app_status[index] = False
             app.set_id(index)
-            app.log = appmgr_log
             index+=1
         appmgr_log.debug('[AppMgr] Load apps, the number of app = %s'%self.applist)
         if len(self.applist) > 0:

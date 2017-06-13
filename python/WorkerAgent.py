@@ -524,6 +524,9 @@ class Worker(BaseThread):
             self.end_time = time.time()
             wlog.info('[Worker] Task %d have finished, start in %s, end in %s'%(tid,time.strftime("%H:%M:%S",time.localtime(self.start_time)),time.strftime("%H:%M:%S",time.localtime(self.end_time))))
             self.running_task = None
+        logFile.write('-'*50+'\n')
+        logFile.write('start time : %s\n'%time.strftime('%H:%M:%S',time.localtime(self.start_time)))
+        logFile.write('end time : %s\n'%time.strftime('%H:%M:%S',time.localtime(self.end_time)))
         if self.task_status:
             return
         if 0 == self.returncode:

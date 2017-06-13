@@ -6,8 +6,14 @@ from python.Util.Conf import Config
 loglevel={'info':logging.INFO, 'debug':logging.DEBUG}
 
 
-def getLogger(name, level=None):
-    log_dir = Config.getCFGattr('Logdir')
+def getLogger(name, level=None, applog=False):
+    if applog:
+        log_dir = Config.getCFGattr('Rundir')
+        if not log_dir:
+            log_dir = os.getcwd()
+        log_dir += '/Applog'
+    else:
+        log_dir = Config.getCFGattr('Logdir')
     if not level:
         level = Config.getCFGattr('Log_Level')
         if not level:

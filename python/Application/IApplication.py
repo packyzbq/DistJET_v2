@@ -1,7 +1,6 @@
 import os
-import subprocess
 import types
-
+from python.Util import logger
 from python import IScheduler
 from IAPPWorker import IAPPWorker
 from IAPPWorker import TestWorker
@@ -23,7 +22,7 @@ class IApplication:
 
         self.scheduler = None
         self.specifiedWorker = None
-        self.log = None
+        self.log = logger.getLogger(self.name,applog=True)
         self.status = {'worker':False,
                        'scheduler':False,
                        'boot':False,
