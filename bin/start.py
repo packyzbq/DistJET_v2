@@ -15,8 +15,8 @@ parser.add_option("-i", "--ini", dest="ini_file", help=" The initial configure f
 parser.add_option("-n", "--num", dest="worker_num", help="The executable worker number")
 parser.add_option("-c", "--capacity",dest="capacity", help="The capacity of each worker")
 #parser.add_option("-cf", "--capacity-file", dest="capacity_file", help="The file defines the capacity of each worker")
-parser.add_option("-mh", "--master-host", dest="master_host", help="The host master runs on")
-parser.add_option("-wh", "--worker-host", dest="worker_host", help="The host worker runs on, can be a hostlist file")
+parser.add_option("-m", "--master-host", dest="master_host", help="The host master runs on")
+parser.add_option("-w", "--worker-host", dest="worker_host", help="The host worker runs on, can be a hostlist file")
 
 (opts, args) = parser.parse_args()
 parg_master = ''+args[0]
@@ -59,7 +59,7 @@ if opts.batch == "local":
         exit()
     else:
         capactiy = int(opts.capacity)
-        parg_worker+=' %d'%capactiy
+        parg_worker+='%d'%capactiy
 
     # config file
     if not opts.ini_file or not os.path.exists(opts.ini_file):
@@ -76,21 +76,39 @@ if opts.batch == "local":
     else:
         parg_master += ' info'
 
+
     print('mpiexec -n 1 python $DistJETPATH/bin/master.py %s'%parg_master)
-    master_rc = subprocess.Popen(['mpiexec','-n','1','python','$DistJETPATH/bin/master.py','%s'%parg_master], stdout=subprocess.PIPE)
+    master_rc = subprocess.Popen(['mpiexec python $DistJETPATH/bin/master.py %s'%parg_master], stdout=subprocess.PIPE,stderr=subprocess.STDOUT, shell=True)
+    master_flag = False
     while True:
         tmpfs = select.select([master_rc.stdout],[],[])
         if master_rc.stdout in tmpfs[0]:
             record = os.read(master_rc.stdout.fileno(),1024)
-            if "@master start running" in record:
+            if record:
+                print record
+            if 'Traceback' in record:
+                print("Error occurs, msg=%s"%record)
                 break
+            if "@master start running" in record:
+                master_flag = True
+                break
+
     # FIXME: load hostfile
-    print('mpiexec -n %d python $DistJETPATH/bin/worker.py %s'%(worker_num,parg_worker))
-    worker_rc = subprocess.Popen(['mpiexec', '-n', worker_num, '$DistJETPATH/bin/worker.py','%s'%parg_worker])
-    worker_rc.wait()
-    master_rc.wait()
-
-
+    if master_flag:
+        print('mpiexec -n %d python $DistJETPATH/bin/worker.py %s'%(worker_num,parg_worker))
+        worker_rc = subprocess.Popen(['mpiexec -n %d $DistJETPATH/bin/worker.py %s'%(worker_num,parg_worker)], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
+        while True:
+            fs = select.select([master_rc.stdout,worker_rc.stdout],[],[])
+            if master_rc.stdout in fs[0]:
+                record = os.read(master_rc.stdout.fileno(),1024)
+            if worker_rc.stdout in fs[0]:
+                record = os.read(worker_rc.stdout.fileno(),1024)
+            if record:
+                print record
+            else:
+                break
+        worker_rc.wait()
+        master_rc.wait()
 
 
 

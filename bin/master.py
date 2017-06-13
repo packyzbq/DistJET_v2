@@ -1,6 +1,9 @@
 import os,sys
 import subprocess
 import traceback
+if 'DistJETPATH' not in os.environ:
+    os.environ['DistJETPATH'] = "/afs/ihep.ac.cn/users/z/zhaobq/workerSpace/DistJET_v2"
+
 sys.path.append(os.getenv('DistJETPATH'))
 # check boost.python if exist or if JUNO offline software has been sourced
 if not os.getenv('JUNOTOP'):
