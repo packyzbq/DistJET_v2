@@ -169,18 +169,29 @@ class WorkerAgent:
         self.task_queue = Queue.Queue(maxsize=self.capacity)
         self.task_completed_queue = Queue.Queue()
 
-        self.tmpExecutor = {}
+        self.initExecutor = {}
         self.tmpLock = threading.RLock()
+        self.finExecutor = {}
 
         # The operation/requirements need to transfer to master through heart beat
         self.heartcond = threading.Condition()
         self.heartbeat = HeartbeatThread(self.client,self,self.heartcond)
 
         self.ignoreTask = []
-        self.cond = threading.Condition()
-        self.worker = Worker(self,self.cond)
-        wlog.debug('[Agent] Start Worker Thread')
-        self.worker.start()
+
+        self.cond_list=[]
+        self.worker_queue_list = []
+        self.worker_list = []
+        self.worker_status = []
+        for i in range(self.capacity):
+            self.cond_list[i] = threading.Condition()
+            self.worker_list[i] = Worker(self, i, self.cond_list[i])
+            wlog.debug('[Agent] Worker %s start'%i)
+            self.worker_list[i].start()
+        #self.cond = threading.Condition()
+        #self.worker = Worker(self,self.cond)
+        #wlog.debug('[Agent] Start Worker Thread')
+        #self.worker.start()
 
     def run(self):
         wlog.debug('[Agent] WorkerAgent run...')
@@ -202,7 +213,7 @@ class WorkerAgent:
                             self.wid = v['wid']
                             self.appid = v['appid']
                             self.tmpLock.acquire()
-                            self.tmpExecutor = v['init']
+                            self.iniExecutor = v['init']
                             self.tmpLock.release()
                             # notify the heartbeat thread
                             wlog.debug('[WorkerAgent] Wake up the heartbeat thread')
@@ -211,9 +222,11 @@ class WorkerAgent:
                             self.heartcond.release()
 							# notify worker initialize
                             wlog.info('[Agent] Wake up worker to initialize')
-                            self.cond.acquire()
-                            self.cond.notify()
-                            self.cond.release()
+                            for i in range(len(self.worker_list)):
+                                if self.worker_list[i].status == WorkerStatus.NEW:
+                                    self.cond_list[i].acquire()
+                                    self.cond_list[i].notify()
+                                    self.cond_list[i].release()
                         except KeyError:
                             pass
                     # add tasks v={tid:{boot:v, args:v, data:v, resdir:v}, tid:....}
@@ -223,12 +236,13 @@ class WorkerAgent:
                         for tk,tv in v.items():
                             self.task_queue.put({tk:tv})
                             wlog.debug('[Agent] Add new task={%s:%s}'%(tk,tv))
-                        wlog.debug('[Agent] Worker Status = %d'%self.worker.status)
-                        if self.worker.status == WorkerStatus.IDLE:
-                            wlog.debug('[Agent] Worker IDLE, wake up worker')
-                            self.cond.acquire()
-                            self.cond.notify()
-                            self.cond.release()
+                        #wlog.debug('[Agent] Worker Status = %d'%self.worker.status)
+                        for i in range(len(self.worker_list)):
+                            if self.worker_list[i].status == WorkerStatus.IDLE:
+                                wlog.debug('[Agent] Worker %s IDLE, wake up worker'%i)
+                                self.cond_list[i].acquire()
+                                self.cond_list[i].notify()
+                                self.cond_list[i].release()
 
                     # remove task, v=tid
                     elif int(k) == Tags.TASK_REMOVE:
@@ -240,45 +254,54 @@ class WorkerAgent:
                     # master disconnect ack,
                     elif int(k) == Tags.LOGOUT:
                         wlog.debug('[WorkerAgent] Receive LOGOUT msg = %s' % v)
-                        self.cond.acquire()
-                        self.cond.notify()
-                        self.cond.release()
+                        for i in range(len(self.worker_list)):
+                            if self.worker_list[i].status == WorkerStatus.FINALIZED:
+                                self.cond_list[i].acquire()
+                                self.cond_list[i].notify()
+                                self.cond_list[i].release()
                         # stop worker agent
                         #self.heartbeat.acquire_queue.put({Tags.LOGOUT_ACK:self.wid})
                         self.__should_stop_flag = True
                     elif int(k) == Tags.WORKER_STOP:
                         wlog.debug('[Agent] Receive WORKER_STOP msg = %s'%v)
-                        self.worker.terminate()
-                        self.cond.acquire()
-                        self.cond.notify()
-                        self.cond.release()
+                        for i in range(len(self.worker_list)):
+                            if self.worker_list[i].status == WorkerStatus.RUNNING:
+                                self.worker_list[i].terminate()
+                            if self.worker_list[i].status == WorkerStatus.IDLE:
+                                self.cond_list[i].acquire()
+                                self.cond_list[i].notify()
+                                self.cond_list[i].release()
 
                     # app finalize {boot:v, args:v, data:v, resdir:v}
                     elif int(k) == Tags.APP_FIN:
                         self.task_add_acquire = False
-                        if self.worker.finialized:
-                            wlog.info('[Agent] Worker has finalized, ignore this message')
-                            continue
                         wlog.debug('[WorkerAgent] Receive APP_FIN msg = %s' % v)
                         self.tmpLock.acquire()
-                        self.tmpExecutor = v
+                        self.finExecutor = v
                         self.tmpLock.release()
-                        self.worker.finialized = True
-                        if self.worker.status == WorkerStatus.IDLE:
-                            self.cond.acquire()
-                            self.cond.notify()
-                            self.cond.release()
+                        for worker in self.worker_list:
+                            if worker.finialized:
+                                wlog.info('[Agent] Worker %s has finalized, ignore this message'%worker.id)
+                                continue
+                            worker.finialized = True
+                            if worker.status == WorkerStatus.IDLE:
+                                self.cond_list[worker.id].acquire()
+                                self.cond_list[worker.id].notify()
+                                self.cond_list[worker.id].release()
                     # new app arrive, {init:{boot:v, args:v, data:v, resdir:v}, appid:v}
                     elif int(k) == Tags.NEW_APP:
                         wlog.debug('[WorkerAgent] Receive NEW_APP msg = %s' % v)
                         # TODO new app arrive, need refresh
                         pass
-            if self.task_queue.qsize() < self.capacity and not self.task_add_acquire and not self.worker.finialized:
-                wlog.debug('[Agent] Worker need more tasks')
-                self.heartbeat.acquire_queue.put({Tags.TASK_ADD:self.capacity-self.task_queue.qsize()})
-                self.task_add_acquire = True
+            if self.task_queue.qsize() < self.capacity and not self.task_add_acquire:
+                for worker in self.worker_list:
+                    if not worker.finalized:
+                        wlog.debug('[Agent] Worker need more tasks')
+                        self.heartbeat.acquire_queue.put({Tags.TASK_ADD:self.capacity-self.task_queue.qsize()})
+                        self.task_add_acquire = True
         wlog.debug('[Agent] Wait for worker thread join')
-        self.worker.join()
+        for worker in self.worker_list:
+            worker.join()
         wlog.info('[WorkerAgent] Worker thread has joined')
         self.stop()
         wlog.debug('[Agent] remains %d alive thread, [%s]'%(threading.active_count(), threading.enumerate()))
@@ -294,20 +317,34 @@ class WorkerAgent:
             wlog.error('[WorkerAgent] Client stop error, errcode = %d'%ret)
             # TODO add solution
 
+    def getTask(self, workerid, status):
+        if self.worker_status[workerid] == WorkerStatus.INITILAZED and status in [WorkerStatus.INITILAZED,WorkerStatus.IDLE]:
+            if not self.task_queue.empty():
+                return self.task_queue.get()
+            else:
+                return None
+        else:
+            wlog.warning('[Agent] Worker attempt to get task in wrong status = %s'%status)
+            return -1
+
     def task_done(self, tid, task_stat,**kwd):
         tmp_dict = dict({'task_stat':task_stat},**kwd)
         wlog.info('[Agent] Worker finish task %s, %s' % (tid,tmp_dict))
         self.task_completed_queue.put({tid:tmp_dict})
 
-    def app_ini_done(self,returncode,errmsg=None, result=None):
+    def app_ini_done(self,workerid, returncode,errmsg=None, result=None):
         if returncode != 0:
-            wlog.error('[Error] Worker initialization error, error msg = %s',errmsg)
-        self.heartbeat.acquire_queue.put({Tags.APP_INI:{'wid':self.wid,'recode':returncode, 'errmsg':errmsg, 'result':result}})
+            wlog.error('[Error] Worker %s initialization error, error msg = %s'%(workerid,errmsg))
+        else:
+            self.worker_status[workerid] = WorkerStatus.INITILAZED
+            self.heartbeat.acquire_queue.put({Tags.APP_INI:{'wid':self.wid,'recode':returncode, 'errmsg':errmsg, 'result':result}})
 
-    def app_fin_done(self, returncode, errmsg = None, result=None):
+    def app_fin_done(self, workerid, returncode, errmsg = None, result=None):
         if returncode != 0:
-            wlog.error('[Error] Worker finalization error, error msg = %s',errmsg)
-        self.heartbeat.acquire_queue.put({Tags.APP_FIN:{'wid':self.wid,'recode':returncode, 'result':result}})
+            wlog.error('[Error] Worker %s finalization error, error msg = %s'%(workerid,errmsg))
+        else:
+            self.worker_status[workerid] = WorkerStatus.FINALIZED
+            self.heartbeat.acquire_queue.put({Tags.APP_FIN:{'wid':self.wid,'recode':returncode, 'result':result}})
 
 
 
@@ -342,17 +379,19 @@ class WorkerAgent:
         return tmpdict
 
 
-# FIXME: worker initial in one process, cannot run task in other process. Should make init/run/finalize in the same process
-# Load customed worker class  or  make the task script include init-do-fin steps
-class Worker(BaseThread):
-    def __init__(self, workagent, cond, worker_class=None):
-        BaseThread.__init__(self,"worker")
-        self.workeragent = workagent
+class WorkerProcess(multiprocessing.Process):
+    def __init__(self,id, workeragent, cond, name="", worker_class=None):
+        name = '.'.join(['DistJET.Worker_%s'%self.ident, name])
+        super(multiprocessing.Process,self).__init__(name=name)
+        self.id = id
+        self.workeragent = workeragent
         self.running_task = None
         self.cond = cond
         self.initialized = False
         self.finialized = False
         self.status = WorkerStatus.NEW
+        self.daemon = True
+        self.__should_stop = False
         global wlog
         self.log = wlog
 
@@ -369,15 +408,15 @@ class Worker(BaseThread):
         self.logParser = None
         self.task_status = None
         self.killed = None
-        self.limit=None
+        self.limit = None
         self.virLimit = None
         self.start_time = None
         self.end_time = None
 
-        self.lock = threading.RLock()
+        self.lock = multiprocessing.RLock()
 
     def run(self):
-        while not self.get_stop_flag():
+        while not self.__should_stop:
             while not self.initialized:
                 wlog.debug('[Worker] Worker Start and not initial, ready to sleep')
                 self.status = WorkerStatus.NEW
@@ -389,10 +428,10 @@ class Worker(BaseThread):
                     break
 
                 self.workeragent.tmpLock.acquire()
-                if set(['boot','data','args','resdir']).issubset(set(self.workeragent.tmpExecutor.keys())):
-                    self.initialize(self.workeragent.tmpExecutor['boot'], self.workeragent.tmpExecutor['args'], self.workeragent.tmpExecutor['data'], self.workeragent.tmpExecutor['resdir'])
+                if set(['boot','data','args','resdir']).issubset(set(self.workeragent.iniExecutor.keys())):
+                    self.initialize(self.workeragent.iniExecutor['boot'], self.workeragent.iniExecutor['args'], self.workeragent.iniExecutor['data'], self.workeragent.iniExecutor['resdir'])
                 else:
-                    wlog.warning('[Worker] Worker cannot initialize beacuse of lack of data, need keys = boot,data,args,resdir,your key = %s' % (self.workeragent.tmpExecutor.keys()))
+                    wlog.warning('[Worker] Worker cannot initialize beacuse of lack of data, need keys = boot,data,args,resdir,your key = %s' % (self.workeragent.iniExecutor.keys()))
                 self.workeragent.tmpLock.release()
                 if not self.initialized:
                     continue
@@ -422,8 +461,8 @@ class Worker(BaseThread):
             # TODO according to Policy ,decide to force finalize or wait for all task done
             while self.status != WorkerStatus.FINALIZED:
                 self.workeragent.tmpLock.acquire()
-                self.finalize(self.workeragent.tmpExecutor['boot'], self.workeragent.tmpExecutor['args'],
-                              self.workeragent.tmpExecutor['data'], self.workeragent.tmpExecutor['resdir'])
+                self.finalize(self.workeragent.finExecutor['boot'], self.workeragent.finExecutor['args'],
+                              self.workeragent.finExecutor['data'], self.workeragent.finExecutor['resdir'])
                 self.workeragent.tmpLock.release()
                 self.cond.acquire()
                 self.cond.wait()
@@ -431,6 +470,101 @@ class Worker(BaseThread):
                 wlog.debug('[Worker] I am wake up, ready to stop')
             self.stop()
             wlog.debug('[Worker] Remains %d thread alive, [%s]'%(threading.active_count(), threading.enumerate()))
+
+
+# FIXME: worker initial in one process, cannot run task in other process. Should make init/run/finalize in the same process
+# Load customed worker class  or  make the task script include init-do-fin steps
+class Worker(BaseThread):
+    def __init__(self, id, workagent, cond, worker_class=None):
+        BaseThread.__init__(self,"worker")
+        self.workeragent = workagent
+        self.id = id
+        self.running_task = None
+        self.cond = cond
+        self.initialized = False
+        self.finialized = False
+        self.status = WorkerStatus.NEW
+        global wlog
+        self.log = wlog
+
+        self.worker_obj = None
+        if worker_class:
+            self.worker_obj = worker_class(self.log)
+
+        self.stdout = self.stderr = subprocess.PIPE
+        self.process = None
+        self.pid = None
+
+        self.returncode = None
+        self.fatalLine = None
+        self.logParser = None
+        self.task_status = None
+        self.killed = None
+        self.limit=None
+        self.virLimit = None
+        self.start_time = None
+        self.end_time = None
+
+        self.lock = threading.RLock()
+
+
+    def run(self):
+        while not self.get_stop_flag():
+            while not self.initialized:
+                wlog.debug('[Worker] Worker Start and not initial, ready to sleep')
+                self.status = WorkerStatus.NEW
+                self.cond.acquire()
+                self.cond.wait()
+                self.cond.release()
+
+                if self.finialized:
+                    break
+
+                self.workeragent.tmpLock.acquire()
+                if set(['boot','data','args','resdir']).issubset(set(self.workeragent.iniExecutor.keys())):
+                    self.initialize(self.workeragent.iniExecutor['boot'], self.workeragent.iniExecutor['args'], self.workeragent.iniExecutor['data'], self.workeragent.iniExecutor['resdir'])
+                else:
+                    wlog.warning('[Worker_%s] Worker cannot initialize beacuse of lack of data, need keys = boot,data,args,resdir,your key = %s' % (self.id,self.workeragent.iniExecutor.keys()))
+                self.workeragent.tmpLock.release()
+                if not self.initialized:
+                    continue
+            if self.finialized:
+                wlog.info('[Worker_%s] Initialize error, worker terminate'%self.id)
+                break
+            wlog.info('[Worker_%s] Initialized, Ready to running tasks'%self.id)
+            while not self.finialized:
+                task = self.workeragent.getTask(self.id, self.status)
+                if task and task != -1:
+                    if task.tid in self.workeragent.ignoreTask:
+                        continue
+                    self.status = WorkerStatus.RUNNING
+                    tid, v = task.popitem()
+                    self.do_task(v['boot'], v['args'], v['data'], v['resdir'], tid=int(tid))
+                    self.workeragent.task_done(tid, self.task_status, time_start=self.start_time,
+                                               time_fin=self.end_time, errcode=self.returncode)
+                    self.running_task = None
+                elif task == -1:
+                    pass
+                else:
+                    self.status = WorkerStatus.IDLE
+                    wlog.info('[Worker_%s]: No task to do, worker status = %d'%(self.id,self.status))
+                    self.cond.acquire()
+                    self.cond.wait()
+                    self.cond.release()
+                    wlog.debug('[Worker_%s] I am wake'%self.id)
+            # do finalize
+            # TODO according to Policy ,decide to force finalize or wait for all task done
+            while self.status != WorkerStatus.FINALIZED:
+                self.workeragent.tmpLock.acquire()
+                self.finalize(self.workeragent.finExecutor['boot'], self.workeragent.finExecutor['args'],
+                              self.workeragent.finExecutor['data'], self.workeragent.finExecutor['resdir'])
+                self.workeragent.tmpLock.release()
+                self.cond.acquire()
+                self.cond.wait()
+                self.cond.release()
+                wlog.debug('[Worker_%s] I am wake up, ready to stop'%self.id)
+            self.stop()
+            wlog.debug('[Worker_%s] Remains %d thread alive, [%s]'%(self.id,threading.active_count(), threading.enumerate()))
             #self.workeragent.app_fin_done(self.returncode, status.describe(self.returncode))
 
 
@@ -444,16 +578,16 @@ class Worker(BaseThread):
 
 
     def initialize(self, boot, args, data, resdir, **kwargs):
-        wlog.info('[Worker] Start to initialize...')
+        wlog.info('[Worker_%s] Start to initialize...'%self.id)
         if self.worker_obj:
             if self.worker_obj.initialize(boot=boot, args=args,data=data,resdir=resdir):
-                wlog.debug('[Worker] Worker obj %s initialize'%self.worker_obj.__class__.__name__)
+                wlog.debug('[Worker_%s] Worker obj %s initialize'%(self.id,self.worker_obj.__class__.__name__))
                 self.lock.acquire()
                 self.initialized = True
                 self.status = WorkerStatus.INITILAZED
                 self.lock.release()
             else:
-                wlog.error('[Worker]Error: error occurs when initializing worker')
+                wlog.error('[Worker_%s]Error: error occurs when initializing worker'%self.id)
         elif not boot and not data:
             self.lock.acquire()
             self.initialized = True
@@ -467,7 +601,7 @@ class Worker(BaseThread):
                 self.lock.release()
         recode = status.SUCCESS if self.initialized else status.FAIL
         # TODO add result
-        self.workeragent.app_ini_done(recode, status.describe(recode))
+        self.workeragent.app_ini_done(self.id, recode, status.describe(recode))
 
     def do_task(self, boot, args, data, resdir,tid=0,shell=False):
         self.running_task = tid
@@ -490,7 +624,7 @@ class Worker(BaseThread):
                     executable.append(str(v))
         self.process = subprocess.Popen(executable, stdout=self.stdout, stderr=subprocess.STDOUT, shell=shell)
         self.pid = self.process.pid
-        wlog.info('[Worker] Pid %s run task, %s'%(self.pid,executable))
+        wlog.info('[Worker_%s] Pid %s run task, %s'%(self.id,self.pid,executable))
         if len(resdir) and not os.path.exists(resdir):
             os.makedirs(resdir)
         #if kwd.has_key('flag'):
@@ -503,7 +637,7 @@ class Worker(BaseThread):
             while True:
                 fs = select.select([self.process.stdout], [], [], Conf.Config.getCFGattr('AppRespondTimeout'))
                 if not fs[0]:
-                    wlog.info('[Worker] The task has no respond, kill the task')
+                    wlog.info('[Worker_%s] The task has no respond, kill the task'%self.id)
                     self.task_status = status.ANR
                     self.kill()
                     break
@@ -514,7 +648,7 @@ class Worker(BaseThread):
                     logFile.write(record)
                     if self.logParser:
                         if not self._parseLog(record):
-                            wlog.error('[Worker] Error occurs when run task, stop running')
+                            wlog.error('[Worker_%s] Error occurs when run task, stop running'%self.id)
                             self.task_status = status.FAIL
                             self.kill()
                             break
@@ -522,7 +656,7 @@ class Worker(BaseThread):
                         break
             self.returncode = self.process.wait()
             self.end_time = time.time()
-            wlog.info('[Worker] Task %d have finished, start in %s, end in %s'%(tid,time.strftime("%H:%M:%S",time.localtime(self.start_time)),time.strftime("%H:%M:%S",time.localtime(self.end_time))))
+            wlog.info('[Worker_%s] Task %d have finished, start in %s, end in %s'%(self.id,tid,time.strftime("%H:%M:%S",time.localtime(self.start_time)),time.strftime("%H:%M:%S",time.localtime(self.end_time))))
             self.running_task = None
         logFile.write('-'*50+'\n')
         logFile.write('start time : %s\n'%time.strftime('%H:%M:%S',time.localtime(self.start_time)))
@@ -535,7 +669,7 @@ class Worker(BaseThread):
             self.task_status = status.FAIL
 
     def finalize(self, boot, args, data, resdir):
-        wlog.info('[Worker] start to finalize...')
+        wlog.info('[Worker_%s] start to finalize...'%self.id)
         if self.worker_obj:
             if self.worker_obj.finalize(boot=boot, args=args,data=data,resdir=resdir):
                 self.lock.acquire()
@@ -543,13 +677,13 @@ class Worker(BaseThread):
                 self.status = WorkerStatus.FINALIZED
                 self.lock.release()
             else:
-                wlog.error("Error occurs when worker finalizing")
+                wlog.error("[Worker_%s]Error occurs when worker finalizing"%self.id)
         elif not boot and not data:
             self.lock.acquire()
             #self.finialized = True
             self.status = WorkerStatus.FINALIZED
             self.lock.release()
-            wlog.debug('[Worker] Worker has finalized')
+            wlog.debug('[Worker_%s] Worker has finalized'%self.id)
             self.returncode = status.SUCCESS
             
         else:
@@ -559,7 +693,7 @@ class Worker(BaseThread):
                 self.status = WorkerStatus.FINALIZED
                 self.lock.release()
         # TODO add finalize result record
-        self.workeragent.app_fin_done(self.returncode,status.describe(self.returncode))
+        self.workeragent.app_fin_done(self.id, self.returncode,status.describe(self.returncode))
 
     def _checkLimit(self):
         duration = time.time() - self.start_time
