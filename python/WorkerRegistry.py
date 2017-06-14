@@ -146,9 +146,10 @@ class WorkerRegistry:
         return self.get_entry(wid).refin()
 
     def sync_capacity(self, wid, capacity):
+        # TODO the num of assigned task is incompatable with worker
         wentry = self.get_entry(wid)
         if capacity != wentry.max_capacity - wentry.assigned:
-            wentry.alive_lock.acqurie()
+            wentry.alive_lock.acquire()
             wentry.assigned = wentry.max_capacity - capacity
             wentry.alive_lock.release()
 

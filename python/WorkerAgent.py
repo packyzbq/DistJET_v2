@@ -88,9 +88,13 @@ class HeartbeatThread(BaseThread):
                 send_dict['uuid'] = self.worker_agent.uuid
                 send_dict['wid'] = self.worker_agent.wid
                 send_dict['health'] = self.worker_agent.health_info()
-                send_dict['rTask'] = self.worker_agent.worker.running_task
+                rtask_list=[]
+                for worker in self.worker_agent.worker_list:
+                    if worker.running_task:
+                        rtask_list.append(worker.running_task)
+                send_dict['rTask'] = rtask_list
                 send_dict['ctime'] = time.time()
-                send_dict['wstatus'] = self.worker_agent.worker.status
+                #send_dict['wstatus'] = self.worker_agent.worker.status
                 send_str = json.dumps(send_dict)
                 wlog.debug('[HeartBeat] Send msg = %s'%send_str)
                 ret = self._client.send_string(send_str, len(send_str), 0, Tags.MPI_PING)
@@ -120,7 +124,7 @@ class HeartbeatThread(BaseThread):
         # add node health information
         send_dict['health'] = self.worker_agent.health_info()
         send_dict['ctime'] = time.time()
-        send_dict['wstatus'] = self.worker_agent.worker.status
+        #send_dict['wstatus'] = self.worker_agent.worker.status
         send_str = json.dumps(send_dict)
         wlog.debug('[HeartBeat] Send msg = %s'%send_str)
         ret = self._client.send_string(send_str, len(send_str), 0, Tags.MPI_PING)
@@ -182,10 +186,10 @@ class WorkerAgent:
         self.cond_list=[]
         self.worker_queue_list = []
         self.worker_list = []
-        self.worker_status = []
+        self.worker_status = {}
         for i in range(self.capacity):
-            self.cond_list[i] = threading.Condition()
-            self.worker_list[i] = Worker(self, i, self.cond_list[i])
+            self.cond_list.append(threading.Condition())
+            self.worker_list.append(Worker(i,self, self.cond_list[i]))
             wlog.debug('[Agent] Worker %s start'%i)
             self.worker_list[i].start()
         #self.cond = threading.Condition()
@@ -295,7 +299,7 @@ class WorkerAgent:
                         pass
             if self.task_queue.qsize() < self.capacity and not self.task_add_acquire:
                 for worker in self.worker_list:
-                    if not worker.finalized:
+                    if not worker.finialized:
                         wlog.debug('[Agent] Worker need more tasks')
                         self.heartbeat.acquire_queue.put({Tags.TASK_ADD:self.capacity-self.task_queue.qsize()})
                         self.task_add_acquire = True
@@ -318,14 +322,14 @@ class WorkerAgent:
             # TODO add solution
 
     def getTask(self, workerid, status):
-        if self.worker_status[workerid] == WorkerStatus.INITILAZED and status in [WorkerStatus.INITILAZED,WorkerStatus.IDLE]:
-            if not self.task_queue.empty():
+        if not self.task_queue.empty():
+            if status in [WorkerStatus.INITILAZED,WorkerStatus.IDLE, WorkerStatus.RUNNING]:
                 return self.task_queue.get()
             else:
-                return None
+                wlog.warning('[Agent] Worker attempt to get task in wrong status = %s'%status)
+                return -1
         else:
-            wlog.warning('[Agent] Worker attempt to get task in wrong status = %s'%status)
-            return -1
+            return None
 
     def task_done(self, tid, task_stat,**kwd):
         tmp_dict = dict({'task_stat':task_stat},**kwd)
@@ -475,8 +479,10 @@ class WorkerProcess(multiprocessing.Process):
 # FIXME: worker initial in one process, cannot run task in other process. Should make init/run/finalize in the same process
 # Load customed worker class  or  make the task script include init-do-fin steps
 class Worker(BaseThread):
-    def __init__(self, id, workagent, cond, worker_class=None):
-        BaseThread.__init__(self,"worker")
+    def __init__(self, id, workagent, cond, name=None, worker_class=None):
+        if not name:
+            name = "worker_%s"%id
+        BaseThread.__init__(self,name)
         self.workeragent = workagent
         self.id = id
         self.running_task = None
@@ -535,7 +541,7 @@ class Worker(BaseThread):
             while not self.finialized:
                 task = self.workeragent.getTask(self.id, self.status)
                 if task and task != -1:
-                    if task.tid in self.workeragent.ignoreTask:
+                    if task.keys()[0] in self.workeragent.ignoreTask:
                         continue
                     self.status = WorkerStatus.RUNNING
                     tid, v = task.popitem()

@@ -171,10 +171,11 @@ class SimpleScheduler(IScheduler):
         if not self.scheduled_task_list.has_key(wid):
             self.scheduled_task_list[wid] = []
         for i in range(0,room):
-            tmptid, tmptask = self.task_todo_queue.get().items()[0]
-            tmptask.assign(wid)
-            task_list.append(tmptask)
-            self.scheduled_task_list[wid].append(tmptask.tid)
+            if not self.task_todo_queue.empty():
+                tmptid, tmptask = self.task_todo_queue.get().items()[0]
+                tmptask.assign(wid)
+                task_list.append(tmptask)
+                self.scheduled_task_list[wid].append(tmptask.tid)
         if task_list:
             scheduler_log.debug('[Scheduler] Assign %s to worker %s'%(self.scheduled_task_list[wid][-room:],wid))
         return task_list
