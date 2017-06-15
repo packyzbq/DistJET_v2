@@ -176,6 +176,7 @@ class WorkerAgent:
         self.initExecutor = {}
         self.tmpLock = threading.RLock()
         self.finExecutor = {}
+        self.fin_flag = False
 
         # The operation/requirements need to transfer to master through heart beat
         self.heartcond = threading.Condition()
@@ -283,15 +284,7 @@ class WorkerAgent:
                         self.tmpLock.acquire()
                         self.finExecutor = v
                         self.tmpLock.release()
-                        for worker in self.worker_list:
-                            if worker.finialized:
-                                wlog.info('[Agent] Worker %s has finalized, ignore this message'%worker.id)
-                                continue
-                            worker.finialized = True
-                            if worker.status == WorkerStatus.IDLE:
-                                self.cond_list[worker.id].acquire()
-                                self.cond_list[worker.id].notify()
-                                self.cond_list[worker.id].release()
+                        self.fin_flag = True
                     # new app arrive, {init:{boot:v, args:v, data:v, resdir:v}, appid:v}
                     elif int(k) == Tags.NEW_APP:
                         wlog.debug('[WorkerAgent] Receive NEW_APP msg = %s' % v)
@@ -303,6 +296,23 @@ class WorkerAgent:
                         wlog.debug('[Agent] Worker need more tasks')
                         self.heartbeat.acquire_queue.put({Tags.TASK_ADD:self.capacity-self.task_queue.qsize()})
                         self.task_add_acquire = True
+            # finalize worker
+            if self.fin_flag and self.task_queue.empty():
+                for worker in self.worker_list:
+                    if worker.status != WorkerStatus.IDLE:
+                        self.fin_flag = False
+                        break
+                if self.fin_flag:
+                    for worker in self.worker_list:
+                        if worker.finialized:
+                            wlog.info('[Agent] Worker %s has finalized, ignore this message' % worker.id)
+                            continue
+                        worker.finialized = True
+                        if worker.status == WorkerStatus.IDLE:
+                            self.cond_list[worker.id].acquire()
+                            self.cond_list[worker.id].notify()
+                            self.cond_list[worker.id].release()
+
         wlog.debug('[Agent] Wait for worker thread join')
         for worker in self.worker_list:
             worker.join()
