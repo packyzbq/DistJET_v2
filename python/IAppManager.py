@@ -94,6 +94,7 @@ class SimpleAppManager(IAppManager):
 
     def create_task(self, app=None):
         data = app.split()
+        app.log.debug('after split')
         for k,v in data.items():
             # create tasks, and store in task_queue
             task = Task.Task(self.tid)

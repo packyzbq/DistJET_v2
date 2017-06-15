@@ -24,15 +24,18 @@ def getLogger(name, level=None, applog=False):
         os.mkdir(log_dir)
 
     format = logging.Formatter('[%(asctime)s] %(threadName)s %(levelname)s: %(message)s')
+    console = None
+    if Config.getCFGattr('LogConsole'):
+        console = logging.StreamHandler()
+        console.setFormatter(format)
     handler = logging.FileHandler(log_dir+'/DistJET.'+name+'.log')
-    console = logging.StreamHandler()
     handler.setFormatter(format)
-    console.setFormatter(format)
-
+    
     logger = logging.getLogger('DistJET.'+name)
     logger.setLevel(loglevel[level])
     logger.addHandler(handler)
-    logger.addHandler(console)
+    if console:
+        logger.addHandler(console)
     return logger
 
 def setlevel(level, logger=None):

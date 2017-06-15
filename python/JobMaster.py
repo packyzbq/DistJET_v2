@@ -161,7 +161,6 @@ class JobMaster(IJobMaster):
         pass
 
     def startProcessing(self):
-                # TODO add start worker command
         while not self.__stop:
             if not self.recv_buffer.empty():
                 msg = self.recv_buffer.get()

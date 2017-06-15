@@ -47,7 +47,7 @@ class HeartbeatThread(BaseThread):
         self.worker_agent = worker_agent
         self.queue_lock = threading.RLock()
         self.acquire_queue = Queue.Queue()         # entry = key:val
-        self.interval = 1
+        self.interval = Conf.Config.getCFGattr('HeartBeatInterval') if Conf.Config.getCFGattr('HeartBeatInterval') else 1
         self.cond = cond
         global wlog
 
@@ -297,11 +297,11 @@ class WorkerAgent:
 
             # finalize worker
             if self.fin_flag and self.task_queue.empty():
-                wlog.debug('[Agent] Check worker finalize condition')
+                #wlog.debug('[Agent] Check worker finalize condition')
                 flag = True
                 for worker in self.worker_list:
                     if worker.status != WorkerStatus.IDLE:
-                        wlog.debug('[Agent] Worker %s is running, cannot finalize'%worker.id)
+                        #wlog.debug('[Agent] Worker %s is running, cannot finalize'%worker.id)
                         flag = False
                         break
                 if flag:

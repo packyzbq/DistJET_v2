@@ -20,7 +20,9 @@ class Config(object):
         'Log_Level': 'debug',
         'health_detect_scripts': None,
         'topDir': os.environ['DistJETPATH'],
-        'Rundir': None
+        'Rundir': None,
+		'LogConsole':True,
+        'HeartBeatInterval':0.5
     }
 
     __policy = {

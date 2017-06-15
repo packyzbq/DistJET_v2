@@ -26,6 +26,7 @@ class UnitTestApp(IApplication):
         for c in case[startline:]:
             if c != '':
                 self.data[c] = ""
+        self.log.info('split data = %s'%self.data)
         return self.data
 
 
@@ -53,9 +54,11 @@ class UnitTestApp(IApplication):
         if not os.path.exists(logpath):
             self.log.error('[%s] error occurs when analyze log file %s'%(self.name,logpath))
             return False
-        with open(logpath) as logfile:
+        with open(logpath, 'a+') as logfile:
+            self.log.debug('Parse log file %s'%logpath)
             for line in logfile:
                 if line.find('ERROR') != -1:
+                    self.log.info('Find ERROR in log file, task fail')
                     return False
                 else:
                     return True

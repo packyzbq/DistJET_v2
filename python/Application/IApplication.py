@@ -39,7 +39,7 @@ class IApplication:
     def set_scheduler(self, scheduler):
         if not callable(scheduler) or not issubclass(scheduler,IScheduler.IScheduler):
             # TODO unrecognized scheduler
-            print('Scheduler %s can not be recognized'%scheduler)
+            self.log.error('Scheduler %s can not be recognized'%scheduler)
             return
         else:
             self.scheduler = scheduler
@@ -47,7 +47,7 @@ class IApplication:
 
     def set_worker(self, worker):
         if not callable(worker) or not issubclass(worker, IAPPWorker):
-            print('Costumed Worker %s can not be recognized, use default worker'%worker)
+            self.log.error('Costumed Worker %s can not be recognized, use default worker'%worker)
             return
         else:
             self.specifiedWorker = worker
@@ -90,7 +90,7 @@ class IApplication:
         for boot in self.app_boot:
             if not os.path.exists(boot):
                 if not os.path.exists(self.rootdir+'/'+boot):
-                    print('Error: Can not find boot script %s'%boot)
+                    self.log.error('Error: Can not find boot script %s'%boot)
                     return
                 else:
                     self.app_boot.insert(self.app_boot.index(boot),self.rootdir+'/'+boot)
@@ -124,10 +124,10 @@ class IApplication:
         for k,v in self.status.items():
             if not self.status[k]:
                 if k == 'worker' and not self.specifiedWorker:
-                    print('Warning: No worker is set, use default worker')
+                    self.log.warning('Warning: No worker is set, use default worker')
                     self.worker = TestWorker
                     self.status['worker'] = True
                     continue
-                print('Error: App %s is not allow or lack'%k)
+                self.log.error('Error: App %s is not allow or lack'%k)
                 return False
         return True
