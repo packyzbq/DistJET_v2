@@ -77,7 +77,7 @@ class HeartbeatThread(BaseThread):
                 while not self.acquire_queue.empty():
                     tmp_d = self.acquire_queue.get()
                     if send_dict.has_key(tmp_d.keys()[0]):
-                        wlog.warning('[HeartBeatThread]: Reduplicated key=%s when build up heart beat message, skip it')
+                        wlog.warning('[HeartBeatThread]: Reduplicated key=%s when build up heart beat message, skip it'%tmp_d.keys()[0])
                         continue
                     send_dict = dict(send_dict, **tmp_d)
                 self.queue_lock.release()
@@ -96,7 +96,7 @@ class HeartbeatThread(BaseThread):
                 send_dict['ctime'] = time.time()
                 #send_dict['wstatus'] = self.worker_agent.worker.status
                 send_str = json.dumps(send_dict)
-                wlog.debug('[HeartBeat] Send msg = %s'%send_str)
+                #wlog.debug('[HeartBeat] Send msg = %s'%send_str)
                 ret = self._client.send_string(send_str, len(send_str), 0, Tags.MPI_PING)
                 if ret != 0:
                     #TODO add send error handler
@@ -279,7 +279,7 @@ class WorkerAgent:
 
                     # app finalize {boot:v, args:v, data:v, resdir:v}
                     elif int(k) == Tags.APP_FIN:
-                        self.task_add_acquire = False
+                        #self.task_add_acquire = False
                         wlog.debug('[WorkerAgent] Receive APP_FIN msg = %s' % v)
                         self.tmpLock.acquire()
                         self.finExecutor = v
@@ -290,19 +290,21 @@ class WorkerAgent:
                         wlog.debug('[WorkerAgent] Receive NEW_APP msg = %s' % v)
                         # TODO new app arrive, need refresh
                         pass
-            if self.task_queue.qsize() < self.capacity and not self.task_add_acquire:
-                for worker in self.worker_list:
-                    if not worker.finialized:
-                        wlog.debug('[Agent] Worker need more tasks')
-                        self.heartbeat.acquire_queue.put({Tags.TASK_ADD:self.capacity-self.task_queue.qsize()})
-                        self.task_add_acquire = True
+            if self.task_queue.qsize() < self.capacity and (not self.task_add_acquire) and (not self.fin_flag):
+                wlog.debug('[Agent] Worker need more tasks')
+                self.heartbeat.acquire_queue.put({Tags.TASK_ADD:self.capacity-self.task_queue.qsize()})
+                self.task_add_acquire = True
+
             # finalize worker
             if self.fin_flag and self.task_queue.empty():
+                wlog.debug('[Agent] Check worker finalize condition')
+                flag = True
                 for worker in self.worker_list:
                     if worker.status != WorkerStatus.IDLE:
-                        self.fin_flag = False
+                        wlog.debug('[Agent] Worker %s is running, cannot finalize'%worker.id)
+                        flag = False
                         break
-                if self.fin_flag:
+                if flag:
                     for worker in self.worker_list:
                         if worker.finialized:
                             wlog.info('[Agent] Worker %s has finalized, ignore this message' % worker.id)
@@ -627,6 +629,8 @@ class Worker(BaseThread):
 		# TODO if boot has more than one bash script
         if boot[0].endswith('.sh') or shell:
             executable.append("bash")
+        elif boot[0].endswith('.py') or not shell:
+            executable.append("python")
         executable.append(boot[0])
         if len(args) > 0:
             for k,v in args.items():
