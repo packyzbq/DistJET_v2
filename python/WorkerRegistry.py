@@ -160,21 +160,24 @@ class WorkerRegistry:
             wentry.assigned = wentry.max_capacity - capacity
             wentry.alive_lock.release()
 
-    def checkIdle(self):
+    def checkIdle(self,exp=[]):
         """
         check if all workers is in IDLE status
         :return:
         """
         flag = True
         for uuid in self.alive_workers:
-            wentry = self.get_by_uuid(uuid)
+            wentry = self.get_by_uuid(uuid) 
+            if str(wentry.wid) in exp:
+                continue
             if wentry.status in [WorkerStatus.RUNNING, WorkerStatus.INITILAZED]:
                 wRegistery_log.info('[Registry] worker %s is in status=%s, cannot finalize'%(wentry.wid, wentry.status))
                 flag = False
                 return flag
         return flag
 
-    def setContacttime(self, wid, time):
+    def setContacttime(self, uuid, time):
+        wid = self.__all_workers_uuid[uuid]
         self.__all_workers[wid].last_contact_time = time
 
     def checkLostWorker(self):

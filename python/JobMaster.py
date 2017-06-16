@@ -205,15 +205,17 @@ class JobMaster(IJobMaster):
                         # TODO handle node health
                         pass
                     if recv_dict.has_key('ctime'):
-                        self.worker_registry.setContacttime(recv_dict['wid'],recv_dict['ctime'])
+                        if not (recv_dict.has_key('flag') and recv_dict['flag'] == 'lastPing'):						    
+                            self.worker_registry.setContacttime(recv_dict['uuid'],recv_dict['ctime'])
                     if recv_dict.has_key('wstatus'):
                         wentry = self.worker_registry.get_entry(recv_dict['wid'])
                         if wentry:
+                            master_log.debug('[Master] Set worker %s status = %s'%(wentry.wid,recv_dict['wstatus']))
                             wentry.setStatus(recv_dict['wstatus'])
 
                     if recv_dict.has_key(str(MPI_Wrapper.Tags.APP_INI)):
                         v = recv_dict[str(MPI_Wrapper.Tags.APP_INI)]
-                        master_log.debug('[Master] Receive a App_INI msg = %s' % v)
+                        master_log.debug('[Master] From worker %d receive a App_INI msg = %s' % (recv_dict['wid'],v))
                         if v['recode'] == status.SUCCESS:
                             self.task_scheduler.worker_initialized(recv_dict['wid'])
                             master_log.info('worker %d initialize successfully' % recv_dict['wid'])
@@ -245,17 +247,19 @@ class JobMaster(IJobMaster):
 
                     if recv_dict.has_key(str(MPI_Wrapper.Tags.TASK_ADD)):
                         v = recv_dict[str(MPI_Wrapper.Tags.TASK_ADD)]
-                        master_log.debug('[Master] Receive a TASK_ADD msg = %s'%v)
+                        master_log.debug('[Master] From worker %s receive a TASK_ADD msg = %s'%(recv_dict['wid'],v))
                         self.worker_registry.sync_capacity(recv_dict['wid'],int(v))
                         task_list = self.task_scheduler.assignTask(recv_dict['wid'])
                         if not task_list:
                             master_log.debug('[Master] No more task to do')
                             #according to Policy ,check other worker status and idle worker
                             if Config.getPolicyattr('WORKER_SYNC_QUIT'):
-                                if self.worker_registry.checkIdle():
+                                if self.worker_registry.checkIdle(exp=[recv_dict['wid']]):
                                     tmp_dict = self.task_scheduler.fin_worker()
+                                    master_log.debug('[Master] All worker have done, finalize all worker')
                                     self.command_q.put({MPI_Wrapper.Tags.APP_FIN: tmp_dict, 'extra':[]})
                                 else:
+                                    master_log.debug('[Master] There are other running worker, halt')
                                     self.command_q.put({MPI_Wrapper.Tags.WORKER_HALT:''})
                             else:
                                 tmp_dict = self.task_scheduler.fin_worker()
@@ -269,7 +273,7 @@ class JobMaster(IJobMaster):
 
                     if recv_dict.has_key(str(MPI_Wrapper.Tags.APP_FIN)):
                         v = recv_dict[str(MPI_Wrapper.Tags.APP_FIN)]
-                        master_log.debug('[Master] Receive a APP_FIN msg = %s'%v)
+                        master_log.debug('[Master] From worker %s receive a APP_FIN msg = %s'%(recv_dict['wid'],v))
                         if v['recode'] == status.SUCCESS:
                             self.task_scheduler.worker_finalized(recv_dict['wid'])
                             master_log.info('worker %s finalized'%recv_dict['wid'])
@@ -304,6 +308,7 @@ class JobMaster(IJobMaster):
                         for uuid in tmplist:
                             self.server.send_string(send_str, len(send_str),uuid,tag)
                     else:
+                        send_str = json.dumps(send_dict)
                         self.server.send_string(send_str,len(send_str),current_uuid,tag)
             # master stop condition
             #time.sleep(1)

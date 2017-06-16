@@ -94,7 +94,7 @@ class HeartbeatThread(BaseThread):
                         rtask_list.append(worker.running_task)
                 send_dict['rTask'] = rtask_list
                 send_dict['ctime'] = time.time()
-                #send_dict['wstatus'] = self.worker_agent.worker.status
+                send_dict['wstatus'] = self.worker_agent.status
                 send_str = json.dumps(send_dict)
                 #wlog.debug('[HeartBeat] Send msg = %s'%send_str)
                 ret = self._client.send_string(send_str, len(send_str), 0, Tags.MPI_PING)
@@ -295,7 +295,8 @@ class WorkerAgent:
                         self.fin_flag = True
 
                     elif int(k) == Tags.WORKER_HALT:
-                        self.worker_status = WorkerStatus.IDLE
+                        wlog.debug('[Agent] Receive WORKER_HALT command')
+                        self.status = WorkerStatus.IDLE
                     # new app arrive, {init:{boot:v, args:v, data:v, resdir:v}, appid:v}
                     elif int(k) == Tags.NEW_APP:
                         wlog.debug('[WorkerAgent] Receive NEW_APP msg = %s' % v)
@@ -359,6 +360,8 @@ class WorkerAgent:
         tmp_dict = dict({'task_stat':task_stat},**kwd)
         wlog.info('[Agent] Worker finish task %s, %s' % (tid,tmp_dict))
         self.task_completed_queue.put({tid:tmp_dict})
+        if self.status == WorkerStatus.IDLE:
+            self.heartbeat.acquire_queue.put({Tags.TASK_ADD:self.capacity-self.task_queue.qsize()})
 
     def app_ini_done(self,workerid, returncode,errmsg=None, result=None):
         if returncode != 0:
