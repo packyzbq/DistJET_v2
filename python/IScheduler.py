@@ -161,6 +161,7 @@ class IScheduler:
 class SimpleScheduler(IScheduler):
 
     def assignTask(self, wid):
+        # TODO pull idle task back and assign to other more efficient worker
         w_entry = self.worker_registry.get_entry(wid)
         if not w_entry.alive:
             return None

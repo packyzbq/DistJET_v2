@@ -36,34 +36,19 @@ class ControlThread(BaseThread):
         self.processing = False
 
     def run(self):
-        time_start = time.time()
         control_log.info('Control Thread start...')
         while not self.get_stop_flag():
-            try:
-                for wid in self.master.worker_registry:
-                    w = self.master.worker_registry.get(wid)
-                    try:
-                        w.alive_lock.acquire()
-                        if w.lost():
-                            # lost worker
-                            control_log.warning('lost worker: %d', wid)
-                            self.master.remove_worker(wid)
-                            continue
-                        if w.alive:
-                            if w.worker_status == WorkerRegistry.WorkerStatus.RUNNING:
-                                w.idle_time = 0
-                            else:
-                                if w.idle_time == 0:
-                                    w.idle_time = time.time()
-                            if w.isIdle_timeout():
-                                # idle timeout, worker will be removed
-                                control_log.warning('worker %d idle too long and will be removed', wid)
-                                # TODO notify worker stop
-                                self.master.remove_worker(wid)
-                    finally:
-                        w.alive_lock.release()
-            finally:
-                pass
+            # check if lost
+            lostworker = self.master.worker_registry.checkLostWorker()
+            if lostworker:
+                control_log.warning('Lost worker = %s'%lostworker)
+                for wid in lostworker:
+                    self.master.remove_worker(wid)
+            # check if idle timeout
+            #if Config.getCFGattr('IDLE_WORKER_TIMEOUT'):
+            #    workerlist = self.master.worker_registry.checkIDLETimeout()
+            #    for wid in workerlist:
+            #        self.master.remove_worker(wid)
 
             time.sleep(self.master.cfg.getPolicyattr('CONTROL_DELAY'))
 
@@ -153,8 +138,12 @@ class JobMaster(IJobMaster):
             #self.server.send_string(send_str, len(send_str), w_uuid, MPI_Wrapper.Tags.MPI_REGISTY_ACK)
 
     def remove_worker(self,wid):
-        self.worker_registry.remove_worker(wid)
-        self.task_scheduler.worker_removed(wid, time.time())
+        flag,uuid = self.worker_registry.remove_worker(wid)
+        if flag:
+            self.task_scheduler.worker_removed(wid, time.time())
+        else:
+            # TODO MPI Layer handle this problem
+            pass
 
     def anaylize_health(self, info):
         #TODO give a threshold of the health of a node
@@ -162,6 +151,7 @@ class JobMaster(IJobMaster):
 
     def startProcessing(self):
         while not self.__stop:
+            current_uuid = None
             if not self.recv_buffer.empty():
                 msg = self.recv_buffer.get()
                 if msg.tag != -1:
@@ -170,6 +160,7 @@ class JobMaster(IJobMaster):
                         master_log.info("[Master] Agent disconnect")
                         continue
                     recv_dict = json.loads(msg.sbuf[0:msg.size])
+                    current_uuid = recv_dict['uuid']
                     master_log.debug('[Master] Receive msg from worker %s, keys = %s'%(recv_dict['wid'] if recv_dict.has_key('wid') else None,recv_dict.keys()))
                     if recv_dict.has_key('flag'):
                         if recv_dict['flag'] == 'firstPing' and msg.tag == MPI_Wrapper.Tags.MPI_REGISTY:
@@ -213,6 +204,8 @@ class JobMaster(IJobMaster):
                     if recv_dict.has_key('health'):
                         # TODO handle node health
                         pass
+                    if recv_dict.has_key('ctime'):
+                        self.worker_registry.setContacttime(recv_dict['wid'],recv_dict['ctime'])
                     if recv_dict.has_key('wstatus'):
                         wentry = self.worker_registry.get_entry(recv_dict['wid'])
                         if wentry:
@@ -256,9 +249,17 @@ class JobMaster(IJobMaster):
                         self.worker_registry.sync_capacity(recv_dict['wid'],int(v))
                         task_list = self.task_scheduler.assignTask(recv_dict['wid'])
                         if not task_list:
-                            master_log.debug('[Master] No more task to do, finalize worker')
-                            tmp_dict = self.task_scheduler.fin_worker()
-                            self.command_q.put({MPI_Wrapper.Tags.APP_FIN: tmp_dict})
+                            master_log.debug('[Master] No more task to do')
+                            #according to Policy ,check other worker status and idle worker
+                            if Config.getPolicyattr('WORKER_SYNC_QUIT'):
+                                if self.worker_registry.checkIdle():
+                                    tmp_dict = self.task_scheduler.fin_worker()
+                                    self.command_q.put({MPI_Wrapper.Tags.APP_FIN: tmp_dict, 'extra':[]})
+                                else:
+                                    self.command_q.put({MPI_Wrapper.Tags.WORKER_HALT:''})
+                            else:
+                                tmp_dict = self.task_scheduler.fin_worker()
+                                self.command_q.put({MPI_Wrapper.Tags.APP_FIN: tmp_dict})
                         else:
                             task_dict = {}
                             for tmptask in task_list:
@@ -287,15 +288,23 @@ class JobMaster(IJobMaster):
 
             while not self.command_q.empty():
                 send_dict = self.command_q.get()
-#                if "tag" in tmp_dict.keys():
-#                    send_dict = {tmp_dict.pop('tag'): tmp_dict}
-#                else:
-#                    send_dict = {MPI_Wrapper.Tags.MPI_PING: tmp_dict}
                 if len(send_dict) != 0:
-                    send_str = json.dumps(send_dict)
-                    master_log.debug('[Master] Send msg = %s'%send_str)
                     tag = send_dict.keys()[0]
-                    self.server.send_string(send_str, len(send_str), recv_dict['uuid'], tag)
+                    if send_dict.has_key('extra') and (not send_dict['extra']):
+                        del(send_dict['extra'])
+                        send_str = json.dumps(send_dict)
+                        master_log.debug('[Master] Send msg = %s' % send_str)
+                        for uuid in self.worker_registry.alive_workers:
+                            self.server.send_string(send_str, len(send_str), uuid, tag)
+                    elif send_dict.has_key('extra') and send_dict['extra']:
+                        tmplist = send_dict['extra']
+                        del(send_dict['extra'])
+                        send_str = json.dumps(send_dict)
+                        master_log.debug('[Master] Send msg = %s' % send_str)
+                        for uuid in tmplist:
+                            self.server.send_string(send_str, len(send_str),uuid,tag)
+                    else:
+                        self.server.send_string(send_str,len(send_str),current_uuid,tag)
             # master stop condition
             #time.sleep(1)
             if not self.task_scheduler.has_more_work() and not self.task_scheduler.has_scheduled_work():
@@ -318,5 +327,8 @@ class JobMaster(IJobMaster):
     def getRunFlag(self):
         return self.appmgr.runflag
 
+    def finalize_worker(self, uuid):
+        tmp_dict = self.task_scheduler.fin_worker()
+        self.command_q.put({MPI_Wrapper.Tags.APP_FIN: tmp_dict,'extra':[uuid]})
 
 

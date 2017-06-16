@@ -78,7 +78,7 @@ class WorkerRegistry:
         self.last_wid = 0
         self.lock = threading.RLock()
 
-        #self.__alive_workers = []       # w_uuid
+        self.alive_workers = set([])       # w_uuid
 
     def size(self):
         return len(self.__all_workers)
@@ -96,6 +96,7 @@ class WorkerRegistry:
                 w = WorkerEntry(self.last_wid, w_uuid, max_capacity)
                 self.__all_workers[self.last_wid] = w
                 self.__all_workers_uuid[w_uuid] = self.last_wid
+                self.alive_workers.add(w_uuid)
                 wRegistery_log.info('new worker registered: wid=%d, worker_uuid=%s',self.last_wid, w_uuid)
                 return w
         except:
@@ -105,26 +106,32 @@ class WorkerRegistry:
             wRegistery_log.debug('[WorkerRegistry] After add worker')
 
     def remove_worker(self, wid):
+        """
+        remove worker, if worker alive, return worker's uuid to finalize worker, otherwise stop worker
+        :param wid:
+        :return: bool, uuid
+        """
         self.lock.acquire()
         try:
             w_uuid = self.__all_workers[wid].w_uuid
         except KeyError:
             wRegistery_log.warning('attempt to remove not registered worker: wid=%d', wid)
-            return False
+            return False,None
         else:
             if self.__all_workers[wid].alive:
-                wRegistery_log.error('attempt to remove alive worker: wid=%d',wid)
-                return False
+                # finalize worker
+                wRegistery_log.info('attempt to remove alive worker: wid=%d',wid)
+                return False,w_uuid
             wRegistery_log.info('worker removed: wid=%d',wid)
             try:
                 del(self.__all_workers[wid])
                 del(self.__all_workers_uuid[w_uuid])
             except KeyError:
                 wRegistery_log.warning('[WorkerRegistry]: can not find worker when remove worker=%d, uuid=%s', wid, w_uuid)
-                return False
+                return False, None
         finally:
             self.lock.release()
-        return True
+        return True ,None
 
     def get_entry(self,wid):
         if self.__all_workers.has_key(wid):
@@ -152,6 +159,54 @@ class WorkerRegistry:
             wentry.alive_lock.acquire()
             wentry.assigned = wentry.max_capacity - capacity
             wentry.alive_lock.release()
+
+    def checkIdle(self):
+        """
+        check if all workers is in IDLE status
+        :return:
+        """
+        flag = True
+        for uuid in self.alive_workers:
+            wentry = self.get_by_uuid(uuid)
+            if wentry.status in [WorkerStatus.RUNNING, WorkerStatus.INITILAZED]:
+                wRegistery_log.info('[Registry] worker %s is in status=%s, cannot finalize'%(wentry.wid, wentry.status))
+                flag = False
+                return flag
+        return flag
+
+    def setContacttime(self, wid, time):
+        self.__all_workers[wid].last_contact_time = time
+
+    def checkLostWorker(self):
+        """
+        check if there are lost workers, and do some handle
+        :return:
+        """
+        lostworker = []
+        for w in self.__all_workers.values():
+            if w.isLost():
+                lostworker.append(w.wid)
+                w.alive = False
+                self.alive_workers.remove(w.w_uuid)
+        return lostworker
+
+    def checkIDLETimeout(self):
+        list = []
+        timeout = Config.getCFGattr('IDLE_WORKER_TIMEOUT')
+        if not timeout or timeout==0:
+            return None
+        else:
+            for w in self.__all_workers.values():
+                if w.alive and w.worker_status == WorkerStatus.IDLE:
+                    if w.idle_time != 0:
+                        if time.time()-w.idle_time > Config.getPolicyattr('IDLE_WORKER_TIMEOUT'):
+                            list.append(w.wid)
+                    else:
+                        w.idle_time = time.time()
+        return list
+
+
+
 
     def __iter__(self):
         return self.__all_workers.copy().__iter__()

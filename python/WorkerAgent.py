@@ -184,6 +184,8 @@ class WorkerAgent:
 
         self.ignoreTask = []
 
+        self.status = WorkerStatus.NEW      # represent agent status, used for master management
+
         self.cond_list=[]
         self.worker_queue_list = []
         self.worker_list = []
@@ -203,7 +205,10 @@ class WorkerAgent:
         self.heartbeat.start()
         wlog.debug('[WorkerAgent] HeartBeat thread start...')
         while not self.__should_stop_flag:
-            time.sleep(1)
+            if self.worker_status == WorkerStatus.IDLE:
+                time.sleep(Conf.Config.getCFGattr('Halt_Recv_Interval'))
+            else:
+                time.sleep(0.5)
             if not self.recv_buff.empty():
                 msg = self.recv_buff.get()
                 if msg.tag == -1:
@@ -213,6 +218,7 @@ class WorkerAgent:
                 for k,v in recv_dict.items():
                     # registery info v={wid:val,init:{boot:v, args:v, data:v, resdir:v}, appid:v}
                     if int(k) == Tags.MPI_REGISTY_ACK:
+                        self.status = WorkerStatus.RUNNING
                         wlog.debug('[WorkerAgent] Receive Registry_ACK msg = %s'%v)
                         try:
                             self.wid = v['wid']
@@ -236,6 +242,7 @@ class WorkerAgent:
                             pass
                     # add tasks v={tid:{boot:v, args:v, data:v, resdir:v}, tid:....}
                     elif int(k) == Tags.TASK_ADD:
+                        self.status = WorkerStatus.RUNNING
                         self.task_add_acquire = False
                         wlog.debug('[WorkerAgent] Receive TASK_ADD msg = %s'%v)
                         for tk,tv in v.items():
@@ -252,10 +259,11 @@ class WorkerAgent:
                     # remove task, v=tid
                     elif int(k) == Tags.TASK_REMOVE:
                         wlog.debug('[WorkerAgent] Receive TASK_REMOVE msg = %s'%v)
-                        if self.worker.running_task == v:
-                            self.worker.kill()
-                        else:
-                            self.ignoreTask.append(v)
+                        for worker in self.worker_list:
+                            if worker.running_task == v:
+                                worker.kill()
+                            else:
+                                self.ignoreTask.append(v)
                     # master disconnect ack,
                     elif int(k) == Tags.LOGOUT:
                         wlog.debug('[WorkerAgent] Receive LOGOUT msg = %s' % v)
@@ -285,6 +293,9 @@ class WorkerAgent:
                         self.finExecutor = v
                         self.tmpLock.release()
                         self.fin_flag = True
+
+                    elif int(k) == Tags.WORKER_HALT:
+                        self.worker_status = WorkerStatus.IDLE
                     # new app arrive, {init:{boot:v, args:v, data:v, resdir:v}, appid:v}
                     elif int(k) == Tags.NEW_APP:
                         wlog.debug('[WorkerAgent] Receive NEW_APP msg = %s' % v)
@@ -314,6 +325,7 @@ class WorkerAgent:
                             self.cond_list[worker.id].acquire()
                             self.cond_list[worker.id].notify()
                             self.cond_list[worker.id].release()
+            # change workerAgent status
 
         wlog.debug('[Agent] Wait for worker thread join')
         for worker in self.worker_list:
@@ -352,6 +364,7 @@ class WorkerAgent:
         if returncode != 0:
             wlog.error('[Error] Worker %s initialization error, error msg = %s'%(workerid,errmsg))
         else:
+            self.status = WorkerStatus.INITILAZED
             self.worker_status[workerid] = WorkerStatus.INITILAZED
             self.heartbeat.acquire_queue.put({Tags.APP_INI:{'wid':self.wid,'recode':returncode, 'errmsg':errmsg, 'result':result}})
 
@@ -359,6 +372,7 @@ class WorkerAgent:
         if returncode != 0:
             wlog.error('[Error] Worker %s finalization error, error msg = %s'%(workerid,errmsg))
         else:
+            self.status = WorkerStatus.FINALIZED
             self.worker_status[workerid] = WorkerStatus.FINALIZED
             self.heartbeat.acquire_queue.put({Tags.APP_FIN:{'wid':self.wid,'recode':returncode, 'result':result}})
 

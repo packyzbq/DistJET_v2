@@ -12,6 +12,7 @@ class Tags:
 ###### NUM <100 for mpich ; NUM>= 100 for python
     WORKER_STOP     =100
     WORKER_INFO     = 101   #w->m sync worker info (uuid, capacity)
+    WORKER_HALT     = 102
 
     TASK_FIN        = 110      #w->m   worker notify completed tasks,
 
