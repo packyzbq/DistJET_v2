@@ -1,8 +1,10 @@
 #!/usr/bin/python
 from optparse import OptionParser
-import os,sys
+from multiprocessing import Process,Pool
+from multiprocessing import Queue as multiQueue
 import subprocess
-import select
+import os,sys
+import traceback
 
 if 'DistJETPATH' not in os.environ:
     os.environ['DistJETPATH'] = "/afs/ihep.ac.cn/users/z/zhaobq/workerSpace/DistJET_v2"
@@ -21,6 +23,70 @@ parser.add_option("-w", "--worker-host", dest="worker_host", help="The host work
 (opts, args) = parser.parse_args()
 parg_master = ''+args[0]
 parg_worker = ''
+
+
+def start_master(appfile, queue,config=None, log_level='debug'):
+    if os.path.exists(appfile):
+        module_path = os.path.dirname(appfile)
+        module_path = os.path.abspath(module_path)
+        sys.path.append(module_path)
+        module_name = os.path.basename(appfile)
+        if module_name.endswith('.py'):
+            module_name = module_name[:-3]
+    else:
+        print('@master: cannot find app module %s, exit' % appfile)
+        exit()
+    rundir = os.getcwd()
+    from python.Util.Conf import Config
+    Config.setCfg('Rundir', rundir)
+
+    try:
+        module = __import__(module_name)
+    except ImportError:
+        print('@master: import user define module error, exit=%s' % traceback.format_exc())
+        exit()
+
+    import python.Util.logger as logger
+    logger.setlevel(log_level)
+
+    from python.JobMaster import JobMaster
+    applications = []
+
+    if module.__dict__.has_key('run') and callable(module.__dict__['run']):
+        applications.append(module.run())
+    else:
+        print('@master: No callable function "run" in app module, exit')
+        exit()
+
+    if not config:
+        master = JobMaster(applications=applications)
+    else:
+        master = JobMaster(config, applications)
+    if master.getRunFlag():
+        print('@master start running')
+        queue.put('R')
+        master.startProcessing()
+
+
+def start_worker_local(param):
+    capacity = param[0]
+    queue = param[1]
+    config = param[2]
+    import python.Util.Conf as Conf
+    Conf.Config.setCfg('Rundir', os.getcwd())
+    if config and os.path.exists(config):
+        Conf.set_inipath(os.path.abspath(config))
+
+    from python import WorkerAgent
+    #capacity = int(sys.argv[1])
+
+    if config:
+        agent = WorkerAgent.WorkerAgent(cfg_path=config, capacity=capacity)
+    else:
+        agent = WorkerAgent.WorkerAgent(capacity=capacity)
+    agent.run()
+
+
 
 if opts.batch == "local":
     # check env
@@ -64,9 +130,11 @@ if opts.batch == "local":
     # config file
     if not opts.ini_file or not os.path.exists(opts.ini_file):
         print 'Can not find initial configure file input, use default configuration'
+        config_file = None
         parg_master += ' null'
         parg_worker += ' null'
     else:
+        config_file = opts.ini_file
         parg_master += ' ' + opts.conf_file
         parg_worker += ' ' + opts.conf_file
 
@@ -76,39 +144,27 @@ if opts.batch == "local":
     else:
         parg_master += ' info'
 
+    queue = multiQueue()
+    master_p = Process(target=start_master, args=(args[0],queue, config_file, opts.debug,))
+    while queue.empty():
+        pass
+    if queue.get() == "R":
+        print "@master init finished, start worker"
+        tmplist= [opts.capacity, queue, config_file]
+        paramlist=[]
+        for i in range(opts.worker_num):
+            paramlist.append(tmplist)
+        pool = Pool(opts.worker_num)
+        rl = pool.map(start_worker_local, paramlist)
+        pool.close()
 
-    print('mpiexec -n 1 python $DistJETPATH/bin/master.py %s'%parg_master)
-    master_rc = subprocess.Popen(['mpiexec python $DistJETPATH/bin/master.py %s'%parg_master], stdout=subprocess.PIPE,stderr=subprocess.STDOUT, shell=True)
-    master_flag = False
-    while True:
-        tmpfs = select.select([master_rc.stdout],[],[])
-        if master_rc.stdout in tmpfs[0]:
-            record = os.read(master_rc.stdout.fileno(),1024)
-            if record:
-                print record
-            if 'Traceback' in record:
-                print("Error occurs, msg=%s"%record)
-                break
-            if "@master start running" in record:
-                master_flag = True
-                break
+        pool.join()
+        master_p.join()
+    else:
+        print "@master not ready, exit"
+        master_p.join()
 
-    # FIXME: load hostfile
-    if master_flag:
-        print('mpiexec -n %d python $DistJETPATH/bin/worker.py %s'%(worker_num,parg_worker))
-        worker_rc = subprocess.Popen(['mpiexec -n %d $DistJETPATH/bin/worker.py %s'%(worker_num,parg_worker)], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
-        while True:
-            fs = select.select([master_rc.stdout,worker_rc.stdout],[],[])
-            if master_rc.stdout in fs[0]:
-                record = os.read(master_rc.stdout.fileno(),1024)
-            if worker_rc.stdout in fs[0]:
-                record = os.read(worker_rc.stdout.fileno(),1024)
-            if record:
-                print record
-            else:
-                break
-        worker_rc.wait()
-        master_rc.wait()
+
 
 
 
