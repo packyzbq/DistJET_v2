@@ -3,6 +3,7 @@ from optparse import OptionParser
 from multiprocessing import Process,Pool
 from multiprocessing import Queue as multiQueue
 import subprocess
+import select
 import os,sys
 import traceback
 
@@ -86,8 +87,6 @@ def start_worker_local(param):
         agent = WorkerAgent.WorkerAgent(capacity=capacity)
     agent.run()
 
-
-
 if opts.batch == "local":
     # check env
     try:
@@ -144,25 +143,38 @@ if opts.batch == "local":
     else:
         parg_master += ' info'
 
-    queue = multiQueue()
-    master_p = Process(target=start_master, args=(args[0],queue, config_file, opts.debug,))
-    while queue.empty():
-        pass
-    if queue.get() == "R":
-        print "@master init finished, start worker"
-        tmplist= [opts.capacity, queue, config_file]
-        paramlist=[]
-        for i in range(opts.worker_num):
-            paramlist.append(tmplist)
-        pool = Pool(opts.worker_num)
-        rl = pool.map(start_worker_local, paramlist)
-        pool.close()
+    print "mpiexec python %s/bin/master.py %s"%(os.environ['DistJETPATH'],parg_master)
+    master_rc = subprocess.Popen(['mpiexec','python',os.environ['DistJETPATH']+'/bin/master.py',parg_master], stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+    while True:
+        fs = select.select([master_rc.stdout],[],[])
+        if not fs[0]:
+            pass
+        if master_rc.stdout in fs[0]:
+            record = os.read(master_rc.stdout.fileno(),1024)
+            if record and record == '@master start running':
+                break
+            if record and 'exit' in record:
+                exit()
+    print "mpiexec -n %s python %s/bin/worker.py %s"%(worker_num,os.environ['DistJETPATH'],parg_worker)
+    worker_rc = subprocess.Popen(['mpiexec','-n',worker_num, 'python', os.environ['DistJETPATH']+'/bin/worker.py', parg_worker], stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
 
-        pool.join()
-        master_p.join()
-    else:
-        print "@master not ready, exit"
-        master_p.join()
+    master_log = open('master.log','w+')
+    worker_log = open('worker.log','w+')
+    while True:
+        fs = select.select([master_rc.stdout, worker_rc.stdout],[],[])
+        if not fs[0]:
+            break
+        if master_rc.stdout in fs[0]:
+            record =os.read(master_rc.stdout.fileno(),1024)
+            if record:
+                master_log.write(record)
+        if worker_rc.stdout in fs[0]:
+            record = os.read(worker_rc.stdout.fileno(),1024)
+            if record:
+                worker_log.write(record)
+    worker_rc.wait()
+    master_rc.wait()
+
 
 
 
