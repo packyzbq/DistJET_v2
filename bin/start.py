@@ -82,7 +82,7 @@ if opts.batch == "local":
         parg_master += ' info'
 
     print "mpiexec python %s/bin/master.py %s"%(os.environ['DistJETPATH'],parg_master)
-    master_rc = subprocess.Popen(['mpiexec','python',os.environ['DistJETPATH']+'/bin/master.py',parg_master], stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+    master_rc = subprocess.Popen(['mpiexec','python',os.environ['DistJETPATH']+'/bin/master.py',parg_master], stdout=subprocess.PIPE,stderr=subprocess.STDOUT, shell = True)
     while True:
         fs = select.select([master_rc.stdout],[],[])
         if not fs[0]:
@@ -95,7 +95,7 @@ if opts.batch == "local":
                 print('Error occurs when start master, msg = %s'%record)
                 exit()
     print "mpiexec -n %s python %s/bin/worker.py %s"%(worker_num,os.environ['DistJETPATH'],parg_worker)
-    worker_rc = subprocess.Popen(['mpiexec','-n',worker_num, 'python', os.environ['DistJETPATH']+'/bin/worker.py', parg_worker], stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+    worker_rc = subprocess.Popen(['mpiexec','-n',worker_num, 'python', os.environ['DistJETPATH']+'/bin/worker.py', parg_worker], stdout=subprocess.PIPE,stderr=subprocess.STDOUT, shell=True)
 
     master_log = open('master.log','w+')
     worker_log = open('worker.log','w+')

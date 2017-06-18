@@ -22,7 +22,7 @@ else:
 
 # argv[1] = appfile, argv[2]=config, argv[3]=log_level
 if len(sys.argv) < 3:
-    print('@master need at least 2 parameter(given %d), exit'%(len(sys.argv)-1))
+    print('@master need at least 2 parameter(given %d), args=%s, exit'%(len(sys.argv)-1, sys.argv))
     exit()
 
 if os.path.exists(sys.argv[1]):
