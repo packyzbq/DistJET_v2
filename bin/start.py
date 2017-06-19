@@ -55,19 +55,19 @@ if opts.batch == "local":
     # capacity
     if not opts.capacity:
         print("Warning: No capacity input, start with One capactiy")
-        capactiy = 1
+        capacity = '1'
         parg_worker+= ' 1'
     elif not str(opts.capacity).isdigit():
         print('Error: Capacity is not a valid number, exit')
         exit()
     else:
-        capactiy = int(opts.capacity)
+        capacity = opts.capacity
         parg_worker+='%d'%capactiy
 
     # config file
     if not opts.ini_file or not os.path.exists(opts.ini_file):
         print 'Can not find initial configure file input, use default configuration'
-        config_file = None
+        config_file = 'null'
         parg_master += ' null'
         parg_worker += ' null'
     else:
@@ -77,25 +77,29 @@ if opts.batch == "local":
 
     # log level
     if opts.debug:
+        level='debug'
         parg_master += ' debug'
     else:
+        level = 'info'
         parg_master += ' info'
 
     print "mpiexec python %s/bin/master.py %s"%(os.environ['DistJETPATH'],parg_master)
-    master_rc = subprocess.Popen(['mpiexec','python',os.environ['DistJETPATH']+'/bin/master.py',parg_master], stdout=subprocess.PIPE,stderr=subprocess.STDOUT, shell = True)
+    master_rc = subprocess.Popen(['mpiexec','python',os.environ['DistJETPATH']+'/bin/master.py',args[0],config_file,level], stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
     while True:
         fs = select.select([master_rc.stdout],[],[])
         if not fs[0]:
-            pass
+            print "No output of master, exit()"
+            exit()
         if master_rc.stdout in fs[0]:
             record = os.read(master_rc.stdout.fileno(),1024)
-            if record and record == '@master start running':
+            print record
+            if record and '@master start running' in record:
                 break
             if record and 'exit' in record:
                 print('Error occurs when start master, msg = %s'%record)
                 exit()
-    print "mpiexec -n %s python %s/bin/worker.py %s"%(worker_num,os.environ['DistJETPATH'],parg_worker)
-    worker_rc = subprocess.Popen(['mpiexec','-n',worker_num, 'python', os.environ['DistJETPATH']+'/bin/worker.py', parg_worker], stdout=subprocess.PIPE,stderr=subprocess.STDOUT, shell=True)
+    print "mpiexec -n %s python %s/bin/worker.py %s,%s"%(worker_num,os.environ['DistJETPATH'],capacity,config_file)
+    worker_rc = subprocess.Popen(['mpiexec','-n',str(worker_num), 'python', os.environ['DistJETPATH']+'/bin/worker.py',str(capacity),config_file], stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
 
     master_log = open('master.log','w+')
     worker_log = open('worker.log','w+')
@@ -107,10 +111,13 @@ if opts.batch == "local":
             record =os.read(master_rc.stdout.fileno(),1024)
             if record:
                 master_log.write(record)
+                print "Master: %s"%record
         if worker_rc.stdout in fs[0]:
             record = os.read(worker_rc.stdout.fileno(),1024)
             if record:
                 worker_log.write(record)
+                print "Worker: %s"%record
+    #FIXME: the script worker runs may process childprocess and cause this method block
     worker_rc.wait()
     master_rc.wait()
 
