@@ -205,15 +205,15 @@ class WorkerAgent:
         self.heartbeat.start()
         wlog.debug('[WorkerAgent] HeartBeat thread start...')
         while not self.__should_stop_flag:
-            if self.worker_status == WorkerStatus.IDLE:
-                time.sleep(Conf.Config.getCFGattr('Halt_Recv_Interval'))
-            else:
-                time.sleep(0.5)
+            #if self.status == WorkerStatus.IDLE:
+            #    time.sleep(Conf.Config.getCFGattr('Halt_Recv_Interval'))
+            #else:
+            time.sleep(0.5)
             if not self.recv_buff.empty():
                 msg = self.recv_buff.get()
                 if msg.tag == -1:
                     continue
-                wlog.debug('[Agent] Agent receive a msg = %s'%msg.sbuf[0:msg.size])
+                #wlog.debug('[Agent] Agent receive a msg = %s'%msg.sbuf[0:msg.size])
                 recv_dict = json.loads(msg.sbuf[0:msg.size])
                 for k,v in recv_dict.items():
                     # registery info v={wid:val,init:{boot:v, args:v, data:v, resdir:v}, appid:v}
@@ -296,14 +296,25 @@ class WorkerAgent:
 
                     elif int(k) == Tags.WORKER_HALT:
                         wlog.debug('[Agent] Receive WORKER_HALT command')
-                        self.status = WorkerStatus.IDLE
+                        # check worker thread status
+                        wid = None
+                        for worker in self.worker_list:
+                            wlog.debug('[Agent-test] worker %s status = %s'%(worker.id,worker.status))
+                            if worker.status == WorkerStatus.RUNNING:
+                                wid = worker.id
+                        if not wid:
+                            wlog.debug('[Agent] Worker has no more task to do, Agent change to IDLE')
+                            self.status = WorkerStatus.IDLE
+                        else:
+                            wlog.debug('[Agent] Worker %s is running, Agent running'%wid)
+                        self.task_add_acquire = False
                     # new app arrive, {init:{boot:v, args:v, data:v, resdir:v}, appid:v}
                     elif int(k) == Tags.NEW_APP:
                         wlog.debug('[WorkerAgent] Receive NEW_APP msg = %s' % v)
                         # TODO new app arrive, need refresh
                         pass
-            if self.task_queue.qsize() < self.capacity and (not self.task_add_acquire) and (not self.fin_flag):
-                wlog.debug('[Agent] Worker need more tasks')
+            if self.task_queue.qsize() < self.capacity and (not self.task_add_acquire) and (not self.fin_flag) and self.status != WorkerStatus.IDLE:
+                wlog.debug('[Agent] Worker need more tasks, ask for new task')
                 self.heartbeat.acquire_queue.put({Tags.TASK_ADD:self.capacity-self.task_queue.qsize()})
                 self.task_add_acquire = True
 
@@ -361,6 +372,7 @@ class WorkerAgent:
         wlog.info('[Agent] Worker finish task %s, %s' % (tid,tmp_dict))
         self.task_completed_queue.put({tid:tmp_dict})
         if self.status == WorkerStatus.IDLE:
+            wlog.debug('[Agent] Finish one task, ask for new task')
             self.heartbeat.acquire_queue.put({Tags.TASK_ADD:self.capacity-self.task_queue.qsize()})
 
     def app_ini_done(self,workerid, returncode,errmsg=None, result=None):
@@ -369,6 +381,7 @@ class WorkerAgent:
         else:
             self.status = WorkerStatus.INITILAZED
             self.worker_status[workerid] = WorkerStatus.INITILAZED
+            wlog.debug('[Agent] Feed back app init result')
             self.heartbeat.acquire_queue.put({Tags.APP_INI:{'wid':self.wid,'recode':returncode, 'errmsg':errmsg, 'result':result}})
 
     def app_fin_done(self, workerid, returncode, errmsg = None, result=None):
@@ -377,6 +390,7 @@ class WorkerAgent:
         else:
             self.status = WorkerStatus.FINALIZED
             self.worker_status[workerid] = WorkerStatus.FINALIZED
+            wlog.debug('[Agent] Feed back app finalize result')
             self.heartbeat.acquire_queue.put({Tags.APP_FIN:{'wid':self.wid,'recode':returncode, 'result':result}})
 
 

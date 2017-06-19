@@ -86,7 +86,7 @@ class JobMaster(IJobMaster):
         self.command_q = Queue.Queue()
 
         self.__wid = 1
-
+        self.__all_final_flag = False
         # TODO(optional) load customed AppManager
         self.appmgr = SimpleAppManager(apps=self.applications)
         master_log.debug('[Master] Appmgr has instanced')
@@ -161,7 +161,7 @@ class JobMaster(IJobMaster):
                         continue
                     recv_dict = json.loads(msg.sbuf[0:msg.size])
                     current_uuid = recv_dict['uuid']
-                    master_log.debug('[Master] Receive msg from worker %s, keys = %s'%(recv_dict['wid'] if recv_dict.has_key('wid') else None,recv_dict.keys()))
+                    #master_log.debug('[Master] Receive msg from worker %s, keys = %s'%(recv_dict['wid'] if recv_dict.has_key('wid') else None,recv_dict.keys()))
                     if recv_dict.has_key('flag'):
                         if recv_dict['flag'] == 'firstPing' and msg.tag == MPI_Wrapper.Tags.MPI_REGISTY:
                             # register worker
@@ -174,7 +174,7 @@ class JobMaster(IJobMaster):
                             #self.command_q.put({MPI_Wrapper.Tags.APP_INI: self.appmgr.get_app_init(self.appmgr.current_app_id), 'uuid':recv_dict['uuid']})
                         elif recv_dict['flag'] == 'lastPing':
                             # last ping from worker, sync completed task, report node's health, logout and disconnect worker
-                            master_log.debug('[Master] Receive DISCONNECT msg = %s' % recv_dict)
+                            master_log.debug('[Master] From worker %s Receive DISCONNECT msg = %s' %(recv_dict['wid'],recv_dict))
                             for tid, val in recv_dict['Task']:
                                 # handle complete task
                                 if self.check_msg_integrity('Task',val):
@@ -254,12 +254,15 @@ class JobMaster(IJobMaster):
                             master_log.debug('[Master] No more task to do')
                             #according to Policy ,check other worker status and idle worker
                             if Config.getPolicyattr('WORKER_SYNC_QUIT'):
-                                if self.worker_registry.checkIdle(exp=[recv_dict['wid']]):
-                                    tmp_dict = self.task_scheduler.fin_worker()
-                                    master_log.debug('[Master] All worker have done, finalize all worker')
-                                    self.command_q.put({MPI_Wrapper.Tags.APP_FIN: tmp_dict, 'extra':[]})
+                                if self.worker_registry.checkIdle():            #exp=[recv_dict['wid']]
+                                    if self.__all_final_flag:
+                                        master_log.info('[Master] Have send all finalize msg, skip this')
+                                    else:
+                                        tmp_dict = self.task_scheduler.fin_worker()
+                                        master_log.debug('[Master] All worker have done, finalize all worker')
+                                        self.command_q.put({MPI_Wrapper.Tags.APP_FIN: tmp_dict, 'extra':[]})
                                 else:
-                                    master_log.debug('[Master] There are other running worker, halt')
+                                    master_log.debug('[Master] There are still running worker, halt')
                                     self.command_q.put({MPI_Wrapper.Tags.WORKER_HALT:''})
                             else:
                                 tmp_dict = self.task_scheduler.fin_worker()
@@ -309,6 +312,7 @@ class JobMaster(IJobMaster):
                             self.server.send_string(send_str, len(send_str),uuid,tag)
                     else:
                         send_str = json.dumps(send_dict)
+                        master_log.debug('[Master] Send to worker %s msg = %s'%(current_uuid,send_str))
                         self.server.send_string(send_str,len(send_str),current_uuid,tag)
             # master stop condition
             #time.sleep(1)

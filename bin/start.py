@@ -22,8 +22,6 @@ parser.add_option("-m", "--master-host", dest="master_host", help="The host mast
 parser.add_option("-w", "--worker-host", dest="worker_host", help="The host worker runs on, can be a hostlist file")
 
 (opts, args) = parser.parse_args()
-parg_master = ''+args[0]
-parg_worker = ''
 
 if opts.batch == "local":
     # check env
@@ -56,34 +54,25 @@ if opts.batch == "local":
     if not opts.capacity:
         print("Warning: No capacity input, start with One capactiy")
         capacity = '1'
-        parg_worker+= ' 1'
     elif not str(opts.capacity).isdigit():
         print('Error: Capacity is not a valid number, exit')
         exit()
     else:
         capacity = opts.capacity
-        parg_worker+='%d'%capactiy
 
     # config file
     if not opts.ini_file or not os.path.exists(opts.ini_file):
         print 'Can not find initial configure file input, use default configuration'
         config_file = 'null'
-        parg_master += ' null'
-        parg_worker += ' null'
     else:
         config_file = opts.ini_file
-        parg_master += ' ' + opts.conf_file
-        parg_worker += ' ' + opts.conf_file
-
     # log level
     if opts.debug:
         level='debug'
-        parg_master += ' debug'
     else:
         level = 'info'
-        parg_master += ' info'
 
-    print "mpiexec python %s/bin/master.py %s"%(os.environ['DistJETPATH'],parg_master)
+    print "mpiexec python %s/bin/master.py %s,%s,%s"%(os.environ['DistJETPATH'],args[0],config_file,level)
     master_rc = subprocess.Popen(['mpiexec','python',os.environ['DistJETPATH']+'/bin/master.py',args[0],config_file,level], stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
     while True:
         fs = select.select([master_rc.stdout],[],[])
@@ -103,7 +92,7 @@ if opts.batch == "local":
 
     master_log = open('master.log','w+')
     worker_log = open('worker.log','w+')
-    while True:
+    while (master_rc.poll() is None) or (worker_rc.poll() is None):
         fs = select.select([master_rc.stdout, worker_rc.stdout],[],[])
         if not fs[0]:
             break
@@ -113,6 +102,7 @@ if opts.batch == "local":
                 master_log.write(record)
                 print "Master: %s"%record
         if worker_rc.stdout in fs[0]:
+			# FIXME worker_rc block by child process, cause record block
             record = os.read(worker_rc.stdout.fileno(),1024)
             if record:
                 worker_log.write(record)
