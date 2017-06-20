@@ -172,6 +172,7 @@ class WorkerAgent:
         self.capacity = capacity
         self.task_queue = Queue.Queue(maxsize=self.capacity)
         self.task_completed_queue = Queue.Queue()
+        self.ignoreTask = []
 
         self.initExecutor = {}
         self.tmpLock = threading.RLock()
@@ -181,8 +182,6 @@ class WorkerAgent:
         # The operation/requirements need to transfer to master through heart beat
         self.heartcond = threading.Condition()
         self.heartbeat = HeartbeatThread(self.client,self,self.heartcond)
-
-        self.ignoreTask = []
 
         self.status = WorkerStatus.NEW      # represent agent status, used for master management
 
@@ -259,11 +258,20 @@ class WorkerAgent:
                     # remove task, v=tid
                     elif int(k) == Tags.TASK_REMOVE:
                         wlog.debug('[WorkerAgent] Receive TASK_REMOVE msg = %s'%v)
-                        for worker in self.worker_list:
-                            if worker.running_task == v:
-                                worker.kill()
-                            else:
-                                self.ignoreTask.append(v)
+                        self.tmpLock.acquire()
+                        try:
+                            for tid in v:
+                                self.ignoreTask.append(tid)
+                        finally:
+                            self.tmpLock.release()
+                        try:
+                            for worker in self.worker_list:
+                                if worker.running_task in v:
+                                    t = worker.running_task
+                                    worker.kill()
+                                    self.ignoreTask.remove(t)
+                        except ValueError:
+                            wlog.warning('[Agent] Can not find tid %s when remove tasks'%t)
                     # master disconnect ack,
                     elif int(k) == Tags.LOGOUT:
                         wlog.debug('[WorkerAgent] Receive LOGOUT msg = %s' % v)
@@ -490,6 +498,7 @@ class WorkerProcess(multiprocessing.Process):
                 if not self.workeragent.task_queue.empty():
                     task = self.workeragent.task_queue.get()
                     if task in self.workeragent.ignoreTask:
+                        self.workeragent.ignoreTask.remove(task.keys()[0])
                         continue
                     # TODO add task failed handle
                     self.status = WorkerStatus.RUNNING
@@ -585,6 +594,11 @@ class Worker(BaseThread):
                 task = self.workeragent.getTask(self.id, self.status)
                 if task and task != -1:
                     if task.keys()[0] in self.workeragent.ignoreTask:
+                        self.workeragent.tmpLock.acquire()
+                        try:
+                            self.workeragent.ignoreTask.remove(task.keys()[0])
+                        finally:
+                            self.workeragent.tmpLock.release()
                         continue
                     self.status = WorkerStatus.RUNNING
                     tid, v = task.popitem()

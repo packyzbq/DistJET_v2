@@ -95,7 +95,7 @@ class JobMaster(IJobMaster):
             return
         #self.task_scheduler = IScheduler.SimpleScheduler(self.appmgr,self.worker_registry)
         if self.appmgr.get_current_app():
-            self.task_scheduler = self.appmgr.get_current_app().scheduler(self.appmgr, self.worker_registry)
+            self.task_scheduler = self.appmgr.get_current_app().scheduler(self,self.appmgr, self.worker_registry)
         else:
             self.task_scheduler = IScheduler.SimpleScheduler(self,self.appmgr,self.worker_registry)
         self.task_scheduler.appid = self.appmgr.get_current_appid()

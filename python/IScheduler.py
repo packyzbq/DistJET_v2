@@ -178,6 +178,8 @@ class SimpleScheduler(IScheduler):
                 while len(worker_task_list) > self.worker_registry.get_capacity(wid) and taskcount < threadhold:
                     tmptidlist.append(worker_task_list.pop())
                     taskcount+=1
+                if not tmptidlist:
+                    continue    
                 self.master.pullback_task(tmptidlist,wid)
                 alltidlist.extend(tmptidlist)
                 if taskcount >= threadhold:
