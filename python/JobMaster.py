@@ -97,7 +97,7 @@ class JobMaster(IJobMaster):
         if self.appmgr.get_current_app():
             self.task_scheduler = self.appmgr.get_current_app().scheduler(self.appmgr, self.worker_registry)
         else:
-            self.task_scheduler = IScheduler.SimpleScheduler(self.appmgr,self.worker_registry)
+            self.task_scheduler = IScheduler.SimpleScheduler(self,self.appmgr,self.worker_registry)
         self.task_scheduler.appid = self.appmgr.get_current_appid()
 
         self.server = MPI_Wrapper.Server(self.recv_buffer,self.svc_name)
@@ -339,5 +339,11 @@ class JobMaster(IJobMaster):
     def finalize_worker(self, uuid):
         tmp_dict = self.task_scheduler.fin_worker()
         self.command_q.put({MPI_Wrapper.Tags.APP_FIN: tmp_dict,'extra':[uuid]})
+
+    def pullback_task(self,tid_list, wid):
+        master_log.debug('[Master] Pull back tasks=%s from worker %s'%(tid_list,wid))
+        uuid = self.worker_registry.get_entry(wid).w_uuid
+        send_dict = {MPI_Wrapper.Tags.TASK_REMOVE:tid_list,'extra':[uuid]}
+        self.command_q.put(send_dict)
 
 

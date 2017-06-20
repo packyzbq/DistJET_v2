@@ -10,8 +10,8 @@ def MSG_Wrapper(**kwd):
     return json.dumps(kwd)
 
 class IScheduler:
-    def __init__(self, appmgr, worker_registry=None):
-        #self.master = master
+    def __init__(self, master, appmgr, worker_registry=None):
+        self.master = master
         self.appid = None
         self.worker_registry = worker_registry
         self.appmgr = appmgr
@@ -161,22 +161,38 @@ class IScheduler:
 class SimpleScheduler(IScheduler):
 
     def assignTask(self, wid):
-        # TODO pull idle task back and assign to other more efficient worker
+        # pull idle task back and assign to other more efficient worker
         w_entry = self.worker_registry.get_entry(wid)
         if not w_entry.alive:
             return None
         room = w_entry.capacity()
         task_list=[]
-        if self.task_todo_queue.empty():
-            return None
         if not self.scheduled_task_list.has_key(wid):
             self.scheduled_task_list[wid] = []
-        for i in range(0,room):
-            if not self.task_todo_queue.empty():
-                tmptid, tmptask = self.task_todo_queue.get().items()[0]
-                tmptask.assign(wid)
-                task_list.append(tmptask)
-                self.scheduled_task_list[wid].append(tmptask.tid)
+        if self.task_todo_queue.empty():
+            threadhold = (room+1)/2
+            tmptidlist = []
+            alltidlist = []
+            taskcount = 0
+            for wid, worker_task_list in self.scheduled_task_list.items():
+                while len(worker_task_list) > self.worker_registry.get_capacity(wid) and taskcount < threadhold:
+                    tmptidlist.append(worker_task_list.pop())
+                    taskcount+=1
+                self.master.pullback_task(tmptidlist,wid)
+                alltidlist.extend(tmptidlist)
+                if taskcount >= threadhold:
+                    break
+                else:
+                    tmptidlist=[]
+            for tid in alltidlist:
+                task_list.append(self.appmgr.get_task(tid))
+        else:
+            for i in range(0,room):
+                if not self.task_todo_queue.empty():
+                    tmptid, tmptask = self.task_todo_queue.get().items()[0]
+                    tmptask.assign(wid)
+                    task_list.append(tmptask)
+                    self.scheduled_task_list[wid].append(tmptask.tid)
         if task_list:
             scheduler_log.debug('[Scheduler] Assign %s to worker %s'%(self.scheduled_task_list[wid][-room:],wid))
         return task_list

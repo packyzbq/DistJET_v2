@@ -146,6 +146,9 @@ class WorkerRegistry:
     def get_worker_list(self):
         return self.__all_workers.values()
 
+    def get_capacity(self, wid):
+        return self.__all_workers[wid].max_capacity
+
     def worker_reinit(self, wid):
         return self.get_entry(wid).reinit()
 
