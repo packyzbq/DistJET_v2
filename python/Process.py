@@ -28,6 +28,8 @@ class Process:
 
         # Log file name depends on what we are running
         self.logFile = logfile
+
+        self.logParser = Parser()
         # Merge stdout and stderr
         self.stdout = self.stderr = subprocess.PIPE
         self.process = None
@@ -60,6 +62,10 @@ class Process:
                     break
                 # If it is called in analysis step, we print the log info to screen
                 logFile.write(data)
+                if not self._parseLog(data):
+                    self.status = status.FAIL
+                    self._kill()
+                    break
         self._burnProcess()
         logFile.close()
 
@@ -97,3 +103,7 @@ class Process:
         if self.fatalLine:
             return False, 'FatalLine: ' + self.fatalLine
         return False, status.describe(self.status)
+
+    def _parseLog(self,data):
+        result,self.fatalline = self.logParser.parse(data)
+        return result

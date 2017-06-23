@@ -24,13 +24,14 @@ class Parser:
 
     successPattern = []
 
-    def __init__(self,cfg):
+    def __init__(self,cfg=None):
         self.fatal = set(Parser.fatalPattern)
         self.success = set(Parser.successPattern)
-        if cfg.getAttr['FatalPattern']:
-            self.fatal.union(cfg.getAttr['FatalPattern'])
-        if cfg.getAttr['SuccPattern']:
-            self.fatal.union(cfg.getAttr['SuccPattern'])
+        if cfg:
+            if cfg.getAttr['FatalPattern']:
+                self.fatal.union(cfg.getAttr['FatalPattern'])
+            if cfg.getAttr['SuccPattern']:
+                self.fatal.union(cfg.getAttr['SuccPattern'])
 
     def addFatalPattern(self, pattern):
         if type(pattern) == types.ListType:

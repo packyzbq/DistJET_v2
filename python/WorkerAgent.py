@@ -1,7 +1,7 @@
 import Queue
 import datetime
 import json
-import os
+import os,sys
 import select
 import subprocess
 import threading
@@ -141,14 +141,33 @@ class WorkerAgent:
     """
     agent
     """
-    def __init__(self,cfg_path=None, capacity=1):
+    def __init__(self,cfg_path=None, capacity=1, worker_path=None):
         #multiprocessing.Process.__init__(self)
         #BaseThread.__init__(self,"agent")
+        global wlog
+        # load config file
         if not cfg_path or cfg_path=='null':
             #use default path
             cfg_path = os.getenv('DistJETPATH')+'/config/default.cfg'
         Conf.set_inipath(cfg_path)
-        global wlog
+        # load specific worker class
+        self.worker_class=None
+        if worker_path:
+            module_path = os.path.abspath(worker_path)
+            sys.path.append(os.path.dirname(module_path))
+            worker_name = os.path.basename(module_path)
+            if worker_name.endswith('.py'):
+                worker_name = worker_name[:-3]
+            try:
+                worker_module = __import__(worker_name)
+                if worker_module.__dict__.has_key[worker_name] and callable(worker_module.__dict__[worker_name]):
+                    self.worker_class = worker_module.__dict__[worker_name]
+                    wlog.info('[Agent] Load specific worker class = %s'%self.worker_class)
+            except ImportError:
+                wlog.error('[Agent] Error when import worker module %s, path = %s'%(worker_name,worker_path))
+        else:
+            print 'No specific worker input, use default'
+
         self.recv_buff = IM.IRecv_buffer()
         self.__should_stop_flag = False
         import uuid as uuid_mod
@@ -191,7 +210,7 @@ class WorkerAgent:
         self.worker_status = {}
         for i in range(self.capacity):
             self.cond_list.append(threading.Condition())
-            self.worker_list.append(Worker(i,self, self.cond_list[i]))
+            self.worker_list.append(Worker(i,self, self.cond_list[i], self.worker_class))
             wlog.debug('[Agent] Worker %s start'%i)
             self.worker_list[i].start()
         #self.cond = threading.Condition()
@@ -666,39 +685,42 @@ class Worker(BaseThread):
         # TODO add result
         self.workeragent.app_ini_done(self.id, recode, status.describe(recode))
 
-    def do_task(self, boot, args, data, resdir,tid=0,shell=False):
+    def do_task(self, boot, args, data, resdir,tid=0,shell=False, extra={}):
         self.running_task = tid
         self.start_time = time.time()
-        self.task_status = None
-        executable = []
-		# TODO if boot has more than one bash script
-        if boot[0].endswith('.sh') or shell:
-            executable.append("bash")
-        elif boot[0].endswith('.py') or not shell:
-            executable.append("python")
-        executable.append(boot[0])
-        if len(args) > 0:
-            for k,v in args.items():
-                executable.append(str(k))
-                if v:
-                    executable.append(str(v))
-        if len(data) > 0:
-            for k,v in data.items():
-                executable.append(str(k))
-                if v :
-                    executable.append(str(v))
-        self.process = subprocess.Popen(executable, stdout=self.stdout, stderr=subprocess.STDOUT, shell=shell)
-        self.pid = self.process.pid
-        wlog.info('[Worker_%s] Pid %s run task, %s'%(self.id,self.pid,executable))
-        if len(resdir) and not os.path.exists(resdir):
-            os.makedirs(resdir)
-        #if kwd.has_key('flag'):
-        #    logFile = open('%s/%s_log'%(resdir,kwd['flag']),'w+')
-        #else:
-        logFile = open('%s/app_%d_task_%d'%(resdir,self.workeragent.appid,tid), 'w+')
+        logFile = open('%s/app_%d_task_%d' % (resdir, self.workeragent.appid, tid), 'w+')
         if self.worker_obj:
-            self.returncode = self.worker_obj.do_work(boot=boot, args=args, data=data, resdir=resdir, logfile=logFile)
+            self.returncode = self.worker_obj.do_work(boot=boot,args=args,data=data,resdir=resdir,extra=extra, log=logFile)
+            self.end_time = time.time()
+            #wlog.info('[Worker_%s] Task %d have finished, returncode = %s, start in %s, end in %s' % (self.id, tid, self.returncode,time.strftime("%H:%M:%S", time.localtime(self.start_time)),time.strftime("%H:%M:%S", time.localtime(self.end_time))))
         else:
+            self.task_status = None
+            executable = []
+            # TODO if boot has more than one bash script
+            if boot[0].endswith('.sh') or shell:
+                executable.append("bash")
+            elif boot[0].endswith('.py') or not shell:
+                executable.append("python")
+            executable.append(boot[0])
+            if len(args) > 0:
+                for k,v in args.items():
+                    executable.append(str(k))
+                    if v:
+                        executable.append(str(v))
+            if len(data) > 0:
+                for k,v in data.items():
+                    executable.append(str(k))
+                    if v :
+                        executable.append(str(v))
+            self.process = subprocess.Popen(executable, stdout=self.stdout, stderr=subprocess.STDOUT, shell=shell)
+            self.pid = self.process.pid
+            wlog.info('[Worker_%s] Pid %s run task, %s'%(self.id,self.pid,executable))
+            if len(resdir) and not os.path.exists(resdir):
+                os.makedirs(resdir)
+            #if kwd.has_key('flag'):
+            #    logFile = open('%s/%s_log'%(resdir,kwd['flag']),'w+')
+            #else:
+
             while True:
                 fs = select.select([self.process.stdout], [], [], Conf.Config.getCFGattr('AppRespondTimeout'))
                 if not fs[0]:
@@ -722,7 +744,7 @@ class Worker(BaseThread):
             self.returncode = self.process.wait()
             self.end_time = time.time()
             wlog.info('[Worker_%s] Task %d have finished, start in %s, end in %s'%(self.id,tid,time.strftime("%H:%M:%S",time.localtime(self.start_time)),time.strftime("%H:%M:%S",time.localtime(self.end_time))))
-            self.running_task = None
+        self.running_task = None
         logFile.write('-'*50+'\n')
         logFile.write('start time : %s\n'%time.strftime('%H:%M:%S',time.localtime(self.start_time)))
         logFile.write('end time : %s\n'%time.strftime('%H:%M:%S',time.localtime(self.end_time)))
