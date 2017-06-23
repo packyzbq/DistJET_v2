@@ -23,8 +23,7 @@ class IApplication:
         self.scheduler = None
         self.specifiedWorker = None
         self.log = logger.getLogger(self.name,applog=True)
-        self.status = {'worker':False,
-                       'scheduler':False,
+        self.status = {'scheduler':False,
                        'boot':False,
                        'resdir':False}
 
@@ -44,7 +43,7 @@ class IApplication:
         else:
             self.scheduler = scheduler
             self.status['scheduler'] = True
-
+    '''
     def set_worker(self, worker):
         if not callable(worker) or not issubclass(worker, IAPPWorker):
             self.log.error('Costumed Worker %s can not be recognized, use default worker'%worker)
@@ -52,7 +51,7 @@ class IApplication:
         else:
             self.specifiedWorker = worker
             self.status['worker'] = True
-
+    '''
     def get_scheduler(self):
         return self.scheduler
 
@@ -123,11 +122,6 @@ class IApplication:
     def checkApp(self):
         for k,v in self.status.items():
             if not self.status[k]:
-                if k == 'worker' and not self.specifiedWorker:
-                    self.log.warning('Warning: No worker is set, use default worker')
-                    self.worker = TestWorker
-                    self.status['worker'] = True
-                    continue
                 self.log.error('Error: App %s is not allow or lack'%k)
                 return False
         return True

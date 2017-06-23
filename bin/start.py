@@ -11,7 +11,7 @@ if 'DistJETPATH' not in os.environ:
     os.environ['DistJETPATH'] = "/afs/ihep.ac.cn/users/z/zhaobq/workerSpace/DistJET_v2"
 sys.path.append(os.environ['DistJETPATH'])
 
-parser = OptionParser(usage="%prog AppFile [opts]",description="start the master on local/HTCondor with config file")
+parser = OptionParser(usage="%prog AppFile WorkerFile [opts]",description="start the master on local/HTCondor with config file")
 parser.add_option("--batch", dest="batch", choices = ["condor","lsf","local"], default = "local", help="Batch job backend")
 parser.add_option("-d", "--debug", dest="debug", action="store_true")
 parser.add_option("-i", "--ini", dest="ini_file", help=" The initial configure file")
@@ -87,8 +87,8 @@ if opts.batch == "local":
             if record and 'exit' in record:
                 print('Error occurs when start master, msg = %s'%record)
                 exit()
-    print "mpiexec -n %s python %s/bin/worker.py %s,%s"%(worker_num,os.environ['DistJETPATH'],capacity,config_file)
-    worker_rc = subprocess.Popen(['mpiexec','-n',str(worker_num), 'python', os.environ['DistJETPATH']+'/bin/worker.py',str(capacity),config_file], stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+    print "mpiexec -n %s python %s/bin/worker.py %s,%s,%s"%(worker_num,os.environ['DistJETPATH'],capacity,config_file, args[1])
+    worker_rc = subprocess.Popen(['mpiexec','-n',str(worker_num), 'python', os.environ['DistJETPATH']+'/bin/worker.py',str(capacity),config_file, args[1]], stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
 
     master_log = open('master.log','w+')
     worker_log = open('worker.log','w+')

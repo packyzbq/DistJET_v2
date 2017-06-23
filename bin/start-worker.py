@@ -5,7 +5,7 @@ import subprocess
 if 'DistJETPATH' not in os.environ:
     os.environ['DistJETPATH'] = "/afs/ihep.ac.cn/users/z/zhaobq/workerSpace/DistJET_v2"
 
-parser = OptionParser(usage="%prog [Options]")
+parser = OptionParser(usage="%prog workerFile [Options]")
 parser.add_option("-n","--num", dest="worker_num")
 parser.add_option("-c","--cap",dest="capacity")
 # FIXME: no need to give the config ?
@@ -67,6 +67,8 @@ if not opts.conf_file or not os.path.exists(opts.conf_file):
     parg+=' null'
 else:
     parg+= ' '+opts.conf_file
+
+parg+=' '+args[0]
 
 # this is the plan A-> each workerAgent has one worker
 print('mpiexec -n %s python $DistJETPATH/bin/worker.py %s'%(opts.worker_num,parg))
