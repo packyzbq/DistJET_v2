@@ -3,7 +3,6 @@ import types
 from python.Util import logger
 from python import IScheduler
 from IAPPWorker import IAPPWorker
-from IAPPWorker import TestWorker
 # TODO add init/fin call function mode
 class IApplication:
     def __init__(self, rootdir, name):

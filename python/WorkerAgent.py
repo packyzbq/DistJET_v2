@@ -96,7 +96,7 @@ class HeartbeatThread(BaseThread):
                 send_dict['ctime'] = time.time()
                 send_dict['wstatus'] = self.worker_agent.status
                 send_str = json.dumps(send_dict)
-                #wlog.debug('[HeartBeat] Send msg = %s'%send_str)
+                wlog.debug('[HeartBeat] Send msg = %s'%send_str)
                 ret = self._client.send_string(send_str, len(send_str), 0, Tags.MPI_PING)
                 if ret != 0:
                     #TODO add send error handler
@@ -144,7 +144,10 @@ class WorkerAgent:
     def __init__(self,cfg_path=None, capacity=1, worker_path=None):
         #multiprocessing.Process.__init__(self)
         #BaseThread.__init__(self,"agent")
+        import uuid as uuid_mod
+        self.uuid = str(uuid_mod.uuid4())
         global wlog
+        wlog = logger.getLogger('Worker_%s'%self.uuid)
         # load config file
         if not cfg_path or cfg_path=='null':
             #use default path
@@ -160,19 +163,16 @@ class WorkerAgent:
                 worker_name = worker_name[:-3]
             try:
                 worker_module = __import__(worker_name)
-                if worker_module.__dict__.has_key[worker_name] and callable(worker_module.__dict__[worker_name]):
+                if worker_module.__dict__.has_key(worker_name) and callable(worker_module.__dict__[worker_name]):
                     self.worker_class = worker_module.__dict__[worker_name]
                     wlog.info('[Agent] Load specific worker class = %s'%self.worker_class)
-            except ImportError:
+            except Exception:
                 wlog.error('[Agent] Error when import worker module %s, path = %s'%(worker_name,worker_path))
         else:
             print 'No specific worker input, use default'
 
         self.recv_buff = IM.IRecv_buffer()
         self.__should_stop_flag = False
-        import uuid as uuid_mod
-        self.uuid = str(uuid_mod.uuid4())
-        wlog = logger.getLogger('Worker_%s'%self.uuid)
         Conf.Config()
         self.cfg = Conf.Config
         if self.cfg.isload():
@@ -210,7 +210,7 @@ class WorkerAgent:
         self.worker_status = {}
         for i in range(self.capacity):
             self.cond_list.append(threading.Condition())
-            self.worker_list.append(Worker(i,self, self.cond_list[i], self.worker_class))
+            self.worker_list.append(Worker(i,self, self.cond_list[i], worker_class=self.worker_class))
             wlog.debug('[Agent] Worker %s start'%i)
             self.worker_list[i].start()
         #self.cond = threading.Condition()
@@ -401,7 +401,17 @@ class WorkerAgent:
         if self.status == WorkerStatus.IDLE:
             wlog.debug('[Agent] Finish one task, ask for new task')
             self.heartbeat.acquire_queue.put({Tags.TASK_ADD:self.capacity-self.task_queue.qsize()})
-
+        else:
+            cflag=True
+            for v in self.worker_status:
+                if v in [WorkerStatus.RUNNING, WorkerStatus.INITILAZED, WorkerStatus.FINALIZED]:
+                    wlog.debug('[Agent]Worker status = %s'%(v))
+                    cflag = False
+                    break
+            if cflag:
+                wlog.debug('[Agent] all worker idle')
+                self.status = WorkerStatus.IDLE
+            
     def app_ini_done(self,workerid, returncode,errmsg=None, result=None):
         if returncode != 0:
             wlog.error('[Error] Worker %s initialization error, error msg = %s'%(workerid,errmsg))

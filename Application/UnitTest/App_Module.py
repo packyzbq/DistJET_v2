@@ -1,6 +1,5 @@
 import UTestApp
 from python.IScheduler import SimpleScheduler
-from python.Application.IAPPWorker import TestWorker
 
 def run():
     app = UTestApp.UnitTestApp("/afs/ihep.ac.cn/users/z/zhaobq/workerSpace/DistJET_v2/Application/UnitTest/",'UnitTest')

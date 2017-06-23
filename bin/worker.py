@@ -24,11 +24,14 @@ if sys.argv[2] != 'null' and os.path.exists(sys.argv[2]):
 from python import WorkerAgent
 capacity = int(sys.argv[1])
 worker_module_path = None
-if os.path.exists(sys.argv[3]):
-    worker_module_path = os.path.abspath(sys.argv[3])
+worker_file = sys.argv[3]
+if not worker_file.endswith('.py'):
+    worker_file = worker_file+'.py'
+if os.path.exists(worker_file):
+    worker_module_path = os.path.abspath(worker_file)
     print 'find specific worker module %s'%os.path.basename(worker_module_path)
-elif os.path.exists(os.environ['DistJETPATH']+'/'+sys.argv[3]):
-    worker_module_path = os.path.abspath(os.environ['DistJETPATH']+'/python/Application/'+sys.argv[3])
+elif os.path.exists(os.environ['DistJETPATH']+'/python/Application/'+worker_file):
+    worker_module_path = os.path.abspath(os.environ['DistJETPATH']+'/python/Application/'+worker_file)
     print 'find specific worker module %s' % os.path.basename(worker_module_path)
 
 # TODO: add multiprocess pool

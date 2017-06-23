@@ -155,7 +155,7 @@ class JobMaster(IJobMaster):
             if not self.recv_buffer.empty():
                 msg = self.recv_buffer.get()
                 if msg.tag != -1:
-                    #master_log.debug('[Master] Receive msg = %s' % msg.sbuf[0:msg.size])
+                    master_log.debug('[Master] Receive msg = %s' % msg.sbuf[0:msg.size])
                     if msg.tag == MPI_Wrapper.Tags.MPI_DISCONNECT:
                         master_log.info("[Master] Agent disconnect")
                         continue
