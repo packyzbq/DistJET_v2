@@ -47,7 +47,7 @@ class Process:
         self.pid = self.process.pid
         logFile = open(self.logFile, 'w+')
         while True:
-            fs = select.select([self.process.stdout], [], [], self.timeout)
+            fs = select.select([self.process.stdout], [], [])
             if not fs[0]:
                 # No response
                 self.status = status.ANR
