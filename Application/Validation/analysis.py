@@ -18,17 +18,13 @@ if not os.environ['JUNOTOP']:
     os.system('source /afs/ihep.ac.cn/soft/juno/JUNO-ALL-SLC6/Pre-Release/J17v1r1-Pre2/setup.sh')
     
 
-scripts = sys.argv[4]
-if not os.path.exists(scripts):
-    print 'Can not find analysis script, check path %s'%scripts
-    exit()
 
 tagdir = os.path.abspath(sys.argv[3])
 if os.getcwd()!=tagdir:
     if os.path.exists(tagdir):
         os.chdir(tagdir)
     else:
-        print 'Can not find tagdir, exit'
+        print 'Can not find tagdir=%s, exit'%tagdir
         exit()
 ana_type = sys.argv[2]
 if ana_type not in prepare_list_type.keys():
@@ -36,10 +32,14 @@ if ana_type not in prepare_list_type.keys():
     exit()
 if not os.path.exists('%s_ana' % ana_type):
     os.mkdir('%s_ana' % ana_type)
-os.chdir('%s_ana' % ana_type)
+#os.chdir('%s_ana' % ana_type)
 
 if 'ana' in sys.argv[1].split('+'):
-    # prepare list of *.root
+    scripts = sys.argv[4]
+    if not os.path.exists(scripts):
+        print 'Can not find analysis script, check path %s'%scripts
+        exit()
+   # prepare list of *.root
     print 'find %s -name %s*.root | sort -n > lists_%s.txt'%(tagdir,prepare_list_type[ana_type],ana_type)
     rc = Popen(['find %s -name %s*.root | sort -n > lists_%s.txt'%(tagdir,prepare_list_type[ana_type],ana_type)],stdout=PIPE,stderr=PIPE,shell=True)
     out,err = rc.communicate()
@@ -60,21 +60,23 @@ if 'ana' in sys.argv[1].split('+'):
         print 'analysis error,recode=%s, status=%s, skip cmp step'%(process.returncode,process.status)
         exit()
 
-resfile_list=[]
-for f in os.listdir(os.getcwd()):
-    if f.endswith('.root'):
-        resfile_list.append(f)
 
 if 'cmp' in sys.argv[1].split('+'):
     # cmp step
+    os.chdir('%s_ana' % ana_type)
+    resfile_list=[]
+    for f in os.listdir(os.getcwd()):
+        if f.endswith('.root'):
+            resfile_list.append(f)
+
     try:
-        refdir = sys.argv[5]
+        refdir = os.path.abspath(sys.argv[5])
     except IndexError:
         print 'No refpath input, skip cmp step skip'
         exit()
 
     if not os.path.exists(refdir):
-        print 'Can not find refpath ,check path %s, exit'
+        print 'Can not find refpath ,check path %s, exit'%refdir
         exit()
 
     plottest = PlotTester.PlotTester('%s_cmp.root'%ana_type,resfile_list,refdir)
