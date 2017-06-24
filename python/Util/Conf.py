@@ -85,6 +85,17 @@ class Config(object):
             GlobalLock.release()
 
     @classmethod
+    def getAppcfgfile(cls,name):
+        try:
+            GlobalLock.acquire()
+            if cls.__appcfg.has_key(name):
+                return cls.__appcfg[name]
+            else:
+                return None
+        finally:
+            GlobalLock.release()
+
+    @classmethod
     def setCfg(cls, key, val):
         try:
             GlobalLock.acquire()
@@ -107,7 +118,6 @@ class Config(object):
 
 class AppConf:
     __cfg = {
-        'appid':None,
         'appName': None,
         'workDir': None,
         'topDir': Config.getCFGattr('topDir')

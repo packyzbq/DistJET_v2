@@ -13,6 +13,7 @@ parser.add_option("--local", dest="dst", action="store_false")
 parser.add_option("--debug", dest="debug",action="store_true")
 parser.add_option("--ini",dest="script_file")
 parser.add_option("--back",dest="back",action="store_true",help="run on the back")
+parser.add_option("--app-conf",dest="app_conf",help="application config file path")
 
 (options,args) = parser.parse_args()
 
@@ -34,6 +35,15 @@ if options.debug:
     parg += ' debug'
 else:
     parg += ' info'
+
+if options.app_config:
+    if not os.path.exists(os.path.abspath(options.app_config)):
+        print 'Can not find app config file %s, exit'
+        exit()
+    else:
+        parg += ' %s'%os.path.abspath(options.app_config)
+else:
+    parg += ' null'
 
 # run on local node
 if not options.dst:

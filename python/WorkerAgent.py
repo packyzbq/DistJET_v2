@@ -141,18 +141,13 @@ class WorkerAgent:
     """
     agent
     """
-    def __init__(self,cfg_path=None, capacity=1, worker_path=None):
+    def __init__(self, capacity=1, worker_path=None):
         #multiprocessing.Process.__init__(self)
         #BaseThread.__init__(self,"agent")
         import uuid as uuid_mod
         self.uuid = str(uuid_mod.uuid4())
         global wlog
         wlog = logger.getLogger('Worker_%s'%self.uuid)
-        # load config file
-        if not cfg_path or cfg_path=='null':
-            #use default path
-            cfg_path = os.getenv('DistJETPATH')+'/config/default.cfg'
-        Conf.set_inipath(cfg_path)
         # load specific worker class
         self.worker_class=None
         if worker_path:
@@ -176,7 +171,7 @@ class WorkerAgent:
         Conf.Config()
         self.cfg = Conf.Config
         if self.cfg.isload():
-            wlog.debug('[Agent] Loaded config file %s'%cfg_path)
+            wlog.debug('[Agent] Loaded config file')
         wlog.debug('[Agent] Start to connect to service <%s>'%self.cfg.getCFGattr('svc_name'))
         self.client = Client(self.recv_buff, self.cfg.getCFGattr('svc_name'), self.uuid)
         ret = self.client.initial()

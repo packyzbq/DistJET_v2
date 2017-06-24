@@ -62,11 +62,7 @@ class IJobMaster:
     pass
 
 class JobMaster(IJobMaster):
-    def __init__(self, cfg_path = None, applications=None):
-        if not cfg_path:
-            #use default path
-            cfg_path = os.getenv('DistJETPATH')+'/config/default.cfg'
-        set_inipath(cfg_path)
+    def __init__(self, applications=None):
         self.cfg = Config()
         self.svc_name = self.cfg.getCFGattr('svc_name')
         if not self.svc_name:

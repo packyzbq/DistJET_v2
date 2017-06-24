@@ -20,7 +20,7 @@ else:
     print('SETUP: find Boost')
 
 
-# argv[1] = appfile, argv[2]=config, argv[3]=log_level
+# argv[1] = appfile, argv[2]=config, argv[3]=log_level, argv[4]=app_config_file
 if len(sys.argv) < 3:
     print('@master need at least 2 parameter(given %d), args=%s, exit'%(len(sys.argv)-1, sys.argv))
     exit()
@@ -53,15 +53,24 @@ from python.JobMaster import JobMaster
 applications = []
 
 if module.__dict__.has_key('run') and callable(module.__dict__['run']):
-    applications.append(module.run())
+    if sys.argv[4] == 'null':
+        applications.append(module.run())
+    else:
+        applications.append(module.run(sys.argv[4]))
 else:
     print('@master: No callable function "run" in app module, exit')
     exit()
+#load config file
+from python.Util import Conf
+cfg_path = sys.argv[2]
+if cfg_path == 'null' or os.path.exists(os.path.abspath(cfg_path)):
+        cfg_path = os.getenv('DistJETPATH') + '/config/default.cfg'
+Conf.set_inipath(cfg_path)
+cfg = Conf.Config()
 
-if sys.argv[2] == 'null':
-    master = JobMaster(applications=applications)
-else:
-    master = JobMaster(sys.argv[2],applications)
+master = JobMaster(applications=applications)
+#else:
+#    master = JobMaster(sys.argv[2],applications)
 if master.getRunFlag():
     print('@master start running')
     master.startProcessing()

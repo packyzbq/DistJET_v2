@@ -15,8 +15,7 @@ if 'Boost' not in os.environ['PATH']:
     #subprocess.Popen(['source', '/afs/ihep.ac.cn/users/z/zhaobq/env'])
 else:
     print('SETUP: find Boost')
-
-import python.Util.Conf as Conf
+from python.Util import Conf
 Conf.Config.setCfg('Rundir',os.getcwd())
 if sys.argv[2] != 'null' and os.path.exists(sys.argv[2]):
     Conf.set_inipath(os.path.abspath(sys.argv[2]))
@@ -33,10 +32,14 @@ if os.path.exists(worker_file):
 elif os.path.exists(os.environ['DistJETPATH']+'/python/Application/'+worker_file):
     worker_module_path = os.path.abspath(os.environ['DistJETPATH']+'/python/Application/'+worker_file)
     print 'find specific worker module %s' % os.path.basename(worker_module_path)
-
-# TODO: add multiprocess pool
-# pool = multiprocessing.Pool(processes=worker_num)
-agent = WorkerAgent.WorkerAgent(sys.argv[2],capacity,worker_module_path)
+#load config file
+cfg_path = sys.argv[2]
+if cfg_path == 'null' or os.path.exists(os.path.abspath(cfg_path)):
+    print 'No config file input, use default config'
+    cfg_path = os.getenv('DistJETPATH') + '/config/default.cfg'
+Conf.set_inipath(cfg_path)
+cfg = Conf.Config()
+agent = WorkerAgent.WorkerAgent(capacity,worker_module_path)
 agent.run()
 import threading
 print('Worker Agent exit, remains %d thread running, threads list = %s'%(threading.active_count(),threading.enumerate()))
