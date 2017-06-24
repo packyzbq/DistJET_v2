@@ -124,8 +124,11 @@ class AppConf:
     }
 
 
-    def __init__(self, ini_path=None):
+    def __init__(self, ini_path=None,app_name=None):
         self.config = dict([(k, v) for (k, v) in AppConf.__cfg.items()])
+        self.app_name = app_name
+        if not self.app_name:
+            self.app_name='AppConfig'
         self.lock = threading.RLock()
         if ini_path:
             if os.path.exists(ini_path):
@@ -138,13 +141,20 @@ class AppConf:
                 self.lock.acquire()
                 cf = ConfigParser.ConfigParser()
                 cf.read(ini_path)
-                if cf.has_section('AppConfig'):
-                    for key in cf.options('AppConfig'):
-                        self.config[key] = cf.get('AppConfig',key)
+                if cf.has_section(self.app_name):
+                    for key in cf.options(self.app_name):
+                        self.config[key] = cf.get(self.app_name,key)
             finally:
                 self.lock.release()
 
     def __getattr__(self,item):
+        assert type(item) == types.StringType, "ERROR: attribute must be of String type!"
+        if self.config.has_key(item):
+            return self.config[item]
+        else:
+            return None
+
+    def get(self,item):
         assert type(item) == types.StringType, "ERROR: attribute must be of String type!"
         if self.config.has_key(item):
             return self.config[item]

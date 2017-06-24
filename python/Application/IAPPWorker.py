@@ -18,7 +18,7 @@ class IAPPWorker:
         """
         raise NotImplementedError
 
-    def do_work(self,boot=None,data={},args={},resdir=None,extra={}):
+    def do_work(self,boot=None,data={},args={},resdir=None,log=None):
         """
         The worker process doing worker
         :param kwargs: boot=boot, args=args, data=data, resdir=resdir, logfile=logFile

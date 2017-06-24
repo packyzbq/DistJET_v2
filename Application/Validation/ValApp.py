@@ -16,7 +16,7 @@ class ValApp(IApplication):
         if not os.path.exists(os.path.abspath(config_path)):
             self.log.warning('[ValApp] Can not find config file = %s, use default'%config_path)
             config_path = os.environ['DistJETPATH']+'/Application/Validation/config.ini'
-        self.cfg = AppConf(config_path)
+        self.cfg = AppConf(config_path,'ValApp')
         '''
         with open(config_path,'r') as f:
             for line in f.readlines():
@@ -43,5 +43,29 @@ class ValApp(IApplication):
             self.anawork.extend(anawork)
 
     def split(self):
-        # 根据类型， 目录拆分，保有 ref的文件目录路径
+        topworkdir = self.cfg.workdir
+        anaflow = self.cfg.anawork
+        data_index = 0
+        if topworkdir and topworkdir != 'None':
+            for subworkdir in os.listdir(topworkdir):
+                if os.path.isdir(subworkdir):
+                    for tagdir in os.listdir(subworkdir):
+                        if os.path.isdir(tagdir):
+                            for anastep in anaflow:
+                                self.data[data_index] = {"workdir":os.path.abspath(tagdir),'step':anastep,
+                                                         'anaflag':self.cfg.anaflag,'cmpflag':self.cfg.cmpflag,
+                                                         'refpath':self.cfg.refpath,'anascript':self.cfg.get(anastep)}
+                                data_index+=1
+                        elif tagdir in anaflow:
+                            self.data[data_index] = {"workdir": os.path.abspath(subworkdir), 'step': tagdir,
+                                                     'anaflag': self.cfg.anaflag, 'cmpflag': self.cfg.cmpflag,
+                                                     'refpath':self.cfg.refpath,'anascript':self.cfg.get(tagdir)}
+                            data_index+=1
+        return self.data
+
+    def merge(self,tasklist):
+        pass
+
+
+
 

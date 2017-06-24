@@ -1,7 +1,6 @@
 from optparse import OptionParser
 import os,sys
 import subprocess
-import re
 
 if 'DistJETPATH' not in os.environ:
     os.environ['DistJETPATH'] = "/afs/ihep.ac.cn/users/z/zhaobq/workerSpace/DistJET_v2"

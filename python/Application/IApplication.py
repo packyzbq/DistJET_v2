@@ -5,8 +5,9 @@ from python import IScheduler
 from python.Util import Conf
 # TODO add init/fin call function mode
 class IApplication:
-    def __init__(self, rootdir, name):
+    def __init__(self, rootdir, name, config_path=None):
         self.id = None
+        self.cfg=None
         self.name = name
         self.app_boot=[]
         self.res_dir = ""   # the directory of result
@@ -113,7 +114,7 @@ class IApplication:
     def merge(self, tasklist):
         """
         this method needs to be overwrite by user to merge the result data
-        :param data: dict type
+        :param tasklist:{tid:taskobj}
         :return:
         """
         raise NotImplementedError
