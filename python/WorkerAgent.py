@@ -340,8 +340,20 @@ class WorkerAgent:
                         wlog.debug('[WorkerAgent] Receive NEW_APP msg = %s' % v)
                         # TODO new app arrive, need refresh
                         pass
+            # sync worker status to agent
+            for worker in self.worker_list:
+                self.worker_status[worker.id]=worker.status
             if self.task_queue.qsize() < self.capacity and (not self.task_add_acquire) and (not self.fin_flag) and self.status != WorkerStatus.IDLE:
                 wlog.debug('[Agent] Worker need more tasks, ask for new task')
+                cflag=True
+                for k,v in self.worker_status.items():
+                    if v in [WorkerStatus.RUNNING, WorkerStatus.INITILAZED, WorkerStatus.FINALIZED]:
+                        wlog.debug('[Agent]Worker %s status = %s'%(k,v))
+                        cflag = False
+                        break
+                if cflag:
+                    wlog.debug('[Agent] all worker idle')
+                    self.status = WorkerStatus.IDLE
                 self.heartbeat.acquire_queue.put({Tags.TASK_ADD:self.capacity-self.task_queue.qsize()})
                 self.task_add_acquire = True
 
@@ -401,17 +413,7 @@ class WorkerAgent:
         if self.status == WorkerStatus.IDLE:
             wlog.debug('[Agent] Finish one task, ask for new task')
             self.heartbeat.acquire_queue.put({Tags.TASK_ADD:self.capacity-self.task_queue.qsize()})
-        else:
-            cflag=True
-            for v in self.worker_status:
-                if v in [WorkerStatus.RUNNING, WorkerStatus.INITILAZED, WorkerStatus.FINALIZED]:
-                    wlog.debug('[Agent]Worker status = %s'%(v))
-                    cflag = False
-                    break
-            if cflag:
-                wlog.debug('[Agent] all worker idle')
-                self.status = WorkerStatus.IDLE
-            
+                        
     def app_ini_done(self,workerid, returncode,errmsg=None, result=None):
         if returncode != 0:
             wlog.error('[Error] Worker %s initialization error, error msg = %s'%(workerid,errmsg))
