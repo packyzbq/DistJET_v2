@@ -3,6 +3,7 @@ import json
 
 import WorkerRegistry
 from Util import logger
+from Util.Conf import Config
 
 scheduler_log = logger.getLogger('AppMgr')
 
@@ -204,7 +205,10 @@ class SimpleScheduler(IScheduler):
         wid = int(u_wid)
         tmptask = self.appmgr.get_task(tid)
         tmptask.fail(time_start,time_finish,error)
-        self.task_todo_queue.put({tid:tmptask})
+        if Config.getPolicyattr('TASK_ATTEMPT_TIME') and Config.getPolicyattr('TASK_ATTEMPT_TIME')>0 and tmptask.getAttempt() < Config.getPolicyattr('TASK_ATTEMPT_TIME'):
+            self.task_todo_queue.put({tid:tmptask})
+        else:
+            scheduler_log.info('[Scheduler] Task %s reach the repeat upper limit, abort it'%tid)
         if tid in self.scheduled_task_list[wid]:
             self.scheduled_task_list[wid].remove(tid)
         scheduler_log.info('[Scheduler] Task %s failed, errmsg = %s'%(tid,error))

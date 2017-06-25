@@ -62,6 +62,7 @@ class Task:
         self.tid = tid
         self.status = TaskStatus.NEW
         self.history = [TaskDetail()]
+        self.attemptime=0
 
         self.boot = []
         self.data = {}
@@ -107,12 +108,16 @@ class Task:
     def assign(self, wid):
         if not self.status is TaskStatus.INITIALIZED:
             self.history.append(TaskDetail())
+        self.attemptime+=1
         self.history[-1].assign(wid)
         self.status = TaskStatus.HALT
 
     def withdraw(self, time_term):
         self.status = TaskStatus.INITIALIZED
         self.history[-1].withdraw(time_term)
+
+    def getAttempt(self):
+        return self.attemptime
 
 
 

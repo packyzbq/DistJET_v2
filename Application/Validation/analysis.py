@@ -13,10 +13,6 @@ prepare_list_type={'detsim':'user-detsim',
 def add_prepare(key, val):
     prepare_list_type[key] = val
 
-if not os.environ['JUNOTOP']:
-    print 'Do not detect JUNO environment, setup JUNO env'
-    os.system('source /afs/ihep.ac.cn/soft/juno/JUNO-ALL-SLC6/Pre-Release/J17v1r1-Pre2/setup.sh')
-    
 
 
 tagdir = os.path.abspath(sys.argv[3])
