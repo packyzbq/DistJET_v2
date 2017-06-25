@@ -12,11 +12,13 @@ class ValApp(IApplication):
         self.status['topdir']=False
         self.ana_flag = True
         self.cmp_flag = True
-        self.config = {}
         if not os.path.exists(os.path.abspath(config_path)):
             self.log.warning('[ValApp] Can not find config file = %s, use default'%config_path)
             config_path = os.environ['DistJETPATH']+'/Application/Validation/config.ini'
         self.cfg = AppConf(config_path,'ValApp')
+        if self.cfg.get('topDir'):
+            self.topdir=self.cfg.get('topDir')
+            self.status['topdir']=True
         '''
         with open(config_path,'r') as f:
             for line in f.readlines():
@@ -24,10 +26,9 @@ class ValApp(IApplication):
                 val = line.split('=')[1].split()
                 self.config[key] = val
         '''
-
-    def __getattr__(self, item):
-        if self.config.has_key(item):
-            return self.config[item]
+    def getcfgattr(self,item):
+        if self.conf.get(item):
+            return self.conf.get(item)
         else:
             return None
 
@@ -43,29 +44,38 @@ class ValApp(IApplication):
             self.anawork.extend(anawork)
 
     def split(self):
-        topworkdir = self.cfg.workdir
-        anaflow = self.cfg.anawork
+        topworkdir = self.cfg.get('workdir')
+        anaflow = self.cfg.get('anawork')
+        if type(anaflow) != types.ListType:
+            anaflow = anaflow.split()
+        self.log.debug('anaflow = %s'%anaflow)
         data_index = 0
+        self.log.debug('cfg = %s'%self.cfg.get('&'))
         if topworkdir and topworkdir != 'None':
+            self.log.debug('%s'%os.listdir(topworkdir))
             for subworkdir in os.listdir(topworkdir):
-                if os.path.isdir(subworkdir):
+                subworkdir = os.path.join(topworkdir,subworkdir)
+                if os.path.isdir(os.path.abspath(subworkdir)):
                     for tagdir in os.listdir(subworkdir):
+                        tagdir = os.path.join(subworkdir,tagdir)
                         if os.path.isdir(tagdir):
                             for anastep in anaflow:
                                 self.data[data_index] = {"workdir":os.path.abspath(tagdir),'step':anastep,
-                                                         'anaflag':self.cfg.anaflag,'cmpflag':self.cfg.cmpflag,
-                                                         'refpath':self.cfg.refpath,'anascript':self.cfg.get(anastep)}
+                                                         'anaflag':self.cfg.get('anaflag'),'cmpflag':self.cfg.get('cmpflag'),
+                                                         'refpath':self.cfg.get('refpath'),'anascript':self.cfg.get(anastep)}
                                 data_index+=1
-                        elif tagdir in anaflow:
-                            self.data[data_index] = {"workdir": os.path.abspath(subworkdir), 'step': tagdir,
-                                                     'anaflag': self.cfg.anaflag, 'cmpflag': self.cfg.cmpflag,
-                                                     'refpath':self.cfg.refpath,'anascript':self.cfg.get(tagdir)}
+                        elif os.path.basename(tagdir) in anaflow:
+                            self.data[data_index] = {"workdir": os.path.abspath(subworkdir), 'step': os.path.basename(tagdir),
+                                                     'anaflag': self.cfg.get('anaflag'), 'cmpflag': self.cfg.get('cmpflag'),
+                                                     'refpath':self.cfg.get('refpath'),'anascript':self.cfg.get(os.path.basename(tagdir))}
                             data_index+=1
+                else:
+                    self.log.warning('subworkdir %s is not a valid dir'%os.path.abspath(subworkdir))
+        self.log.debug('self.data = %s'%self.data)
         return self.data
 
     def merge(self,tasklist):
         pass
-
 
 
 

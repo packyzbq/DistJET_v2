@@ -26,10 +26,11 @@ class IApplication:
         self.status = {'scheduler':False,
                        'boot':False,
                        'resdir':False}
-
-        if os.path.exists(rootdir):
+        if os.path.exists(os.path.abspath(rootdir)):
             self.rootdir = os.path.abspath(rootdir)
             self.status['resdir'] = True
+        else:
+            self.log.error('Can not find root dir=%s'%rootdir)
             
 
     def set_id(self,id):

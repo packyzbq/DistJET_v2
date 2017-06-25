@@ -35,9 +35,9 @@ if options.debug:
 else:
     parg += ' info'
 
-if options.app_config:
-    if not os.path.exists(os.path.abspath(options.app_config)):
-        print 'Can not find app config file %s, exit'
+if options.app_conf:
+    if not os.path.exists(os.path.abspath(options.app_conf)):
+        print 'Can not find app config file %s, exit'%options.app_conf
         exit()
     else:
         parg += ' %s'%os.path.abspath(options.app_config)

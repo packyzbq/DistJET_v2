@@ -204,7 +204,7 @@ class SimpleScheduler(IScheduler):
         wid = int(u_wid)
         tmptask = self.appmgr.get_task(tid)
         tmptask.fail(time_start,time_finish,error)
-        self.task_todo_queue.put(tmptask)
+        self.task_todo_queue.put({tid:tmptask})
         if tid in self.scheduled_task_list[wid]:
             self.scheduled_task_list[wid].remove(tid)
         scheduler_log.info('[Scheduler] Task %s failed, errmsg = %s'%(tid,error))

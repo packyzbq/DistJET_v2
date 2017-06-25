@@ -7,7 +7,7 @@ appmgr_log = logger.getLogger('AppMgr')
 class IAppManager:
     def __init__(self, apps):
         self.applist={}     # A list of applications  id:app
-        self.app_status = {} # appid: true/false
+        self.app_status = {} # appid: true/false  if app finalized
         #self.task_queue = Queue.Queue() # tid:task
         self.task_list = {} # tid: task
         self.app_task_list = {} # appid: task_list(list of task obj)

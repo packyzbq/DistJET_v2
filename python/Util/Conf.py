@@ -120,7 +120,7 @@ class AppConf:
     __cfg = {
         'appName': None,
         'workDir': None,
-        'topDir': Config.getCFGattr('topDir')
+        'topDir': os.environ['DistJETPATH']
     }
 
 
@@ -147,23 +147,25 @@ class AppConf:
             finally:
                 self.lock.release()
 
-    def __getattr__(self,item):
-        assert type(item) == types.StringType, "ERROR: attribute must be of String type!"
-        if self.config.has_key(item):
-            return self.config[item]
-        else:
-            return None
+    #def getattr(self,item):
+    #    assert type(item) == types.StringType, "ERROR: attribute must be of String type!"
+    ##    if self.config.has_key(item):
+    #        return self.config[item]
+    #    else:
+    #        return None
 
     def get(self,item):
         assert type(item) == types.StringType, "ERROR: attribute must be of String type!"
+        if item == "&":
+            return self.config
         if self.config.has_key(item):
             return self.config[item]
         else:
             return None
 
-    def __setattr__(self,key, value):
-        assert type(key) == types.StringType, "ERROR: attribute must be of String type!"
-        self.config[key] = value
+    #def __setattr__(self,key, value):
+    #    assert type(key) == types.StringType, "ERROR: attribute must be of String type!"
+    #    self.config[key] = value
 
 if __name__ == '__main__':
     set_inipath('/afs/ihep.ac.cn/users/z/zhaobq/workerSpace/DistJET_v2/config/default.cfg')

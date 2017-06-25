@@ -53,10 +53,12 @@ from python.JobMaster import JobMaster
 applications = []
 
 if module.__dict__.has_key('run') and callable(module.__dict__['run']):
-    if sys.argv[4] == 'null':
-        applications.append(module.run())
-    else:
-        applications.append(module.run(sys.argv[4]))
+    #if sys.argv[4] == 'null':
+    #    applications.append(module.run())
+    #else:
+    app = module.run(sys.argv[4])
+    print app
+    applications.append(app)
 else:
     print('@master: No callable function "run" in app module, exit')
     exit()
