@@ -88,11 +88,7 @@ class HeartbeatThread(BaseThread):
                 send_dict['uuid'] = self.worker_agent.uuid
                 send_dict['wid'] = self.worker_agent.wid
                 send_dict['health'] = self.worker_agent.health_info()
-                rtask_list=[]
-                for worker in self.worker_agent.worker_list:
-                    if worker.running_task:
-                        rtask_list.append(worker.running_task)
-                send_dict['rTask'] = rtask_list
+                send_dict['rTask'] = self.worker_agent.getRuntasklist()
                 send_dict['ctime'] = time.time()
                 send_dict['wstatus'] = self.worker_agent.status
                 send_str = json.dumps(send_dict)
@@ -339,7 +335,7 @@ class WorkerAgent:
             # sync worker status to agent
             for worker in self.worker_list:
                 self.worker_status[worker.id]=worker.status
-            if self.task_queue.qsize() < self.capacity and (not self.task_add_acquire) and (not self.fin_flag) and self.status != WorkerStatus.IDLE:
+            if self.task_queue.qsize() < self.capacity and (not self.task_add_acquire) and (not self.fin_flag) and self.status not in [WorkerStatus.IDLE,WorkerStatus.NEW,WorkerStatus.FINALIZED]:
                 wlog.debug('[Agent] Worker need more tasks, ask for new task')
                 cflag=True
                 for k,v in self.worker_status.items():
@@ -402,6 +398,14 @@ class WorkerAgent:
         else:
             return None
 
+    def getRuntasklist(self):
+        rtask_list=[]
+        for worker in self.worker_list:
+            if worker.running_task:
+                rtask_list.append(worker.running_task)
+        wlog.debug('[Agent] Running task = %s'%rtask_list)
+        return rtask_list
+
     def task_done(self, tid, task_stat,**kwd):
         tmp_dict = dict({'task_stat':task_stat},**kwd)
         wlog.info('[Agent] Worker finish task %s, %s' % (tid,tmp_dict))
@@ -413,6 +417,7 @@ class WorkerAgent:
     def app_ini_done(self,workerid, returncode,errmsg=None, result=None):
         if returncode != 0:
             wlog.error('[Error] Worker %s initialization error, error msg = %s'%(workerid,errmsg))
+            #TODO reinit worker
         else:
             self.status = WorkerStatus.INITILAZED
             self.worker_status[workerid] = WorkerStatus.INITILAZED
@@ -696,8 +701,10 @@ class Worker(BaseThread):
     def do_task(self, boot, args, data, resdir,tid=0,shell=False, extra={}):
         self.running_task = tid
         self.start_time = time.time()
+        #TODO modify task log name
         logFile = open('%s/app_%d_task_%d' % (resdir, self.workeragent.appid, tid), 'w+')
         if self.worker_obj:
+            wlog.info('[Worker_%s] runing task %s' % (self.id, tid))
             self.returncode = self.worker_obj.do_work(boot=boot,args=args,data=data,resdir=resdir,extra=extra, log=logFile)
             self.end_time = time.time()
             #wlog.info('[Worker_%s] Task %d have finished, returncode = %s, start in %s, end in %s' % (self.id, tid, self.returncode,time.strftime("%H:%M:%S", time.localtime(self.start_time)),time.strftime("%H:%M:%S", time.localtime(self.end_time))))
@@ -756,6 +763,8 @@ class Worker(BaseThread):
         logFile.write('-'*50+'\n')
         logFile.write('start time : %s\n'%time.strftime('%H:%M:%S',time.localtime(self.start_time)))
         logFile.write('end time : %s\n'%time.strftime('%H:%M:%S',time.localtime(self.end_time)))
+        logFile.flush()
+        logFile.close()
         if self.task_status:
             return
         if 0 == self.returncode:

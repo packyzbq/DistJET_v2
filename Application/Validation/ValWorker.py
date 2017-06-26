@@ -4,10 +4,12 @@ import types
 
 class ValWorker(IAPPWorker):
     def initialize(self,**kwargs):
-        pass
+        self.log.info('[ValWorker] Initialized...')
+        return 0
 
     def finalize(self, **kwargs):
-        pass
+        self.log.info('[ValWorker] Finalized...')
+        return 0
 
     def do_work(self,boot=None,data={},args={},resdir=None,log=None):
         '''
