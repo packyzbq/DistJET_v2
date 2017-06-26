@@ -21,17 +21,18 @@ class status:
             return status.DES[stat]
 
 class Process:
-    def __init__(self, exe, logfile, shell=True ,timeout=0):
+    def __init__(self, exe, logfile, shell=True ,timeout=0, ignoreFail=False):
         self.shell = shell
-
+        self.ignoreFail = ignoreFail
         self.executable = exe
 
         # Log file name depends on what we are running
         self.logFile = logfile
+        self.logFile.write('@Process: create process for tasks,executable=%s\n'%self.executable)
 
         self.logParser = Parser()
         # Merge stdout and stderr
-        self.stdout = self.stderr = subprocess.PIPE
+        self.stdout  = subprocess.PIPE
         self.process = None
         self.pid = None
         self.returncode = None
@@ -48,7 +49,7 @@ class Process:
         self.process = subprocess.Popen(args=self.executable, shell=self.shell, stdout=self.stdout,
                                         stderr=subprocess.STDOUT)
         self.pid = self.process.pid
-        logFile = open(self.logFile, 'w+')
+        self.logFile.write('\n'+'*'*20+' Running log '+'*'*20+'\n')
         while True:
             fs = select.select([self.process.stdout], [], [])
             if not fs[0]:
@@ -62,18 +63,20 @@ class Process:
                 if not data:
                     break
                 # If it is called in analysis step, we print the log info to screen
-                logFile.write(data)
-                if not self._parseLog(data):
+                self.logFile.write(data)
+                if (not self.ignoreFail) and (not self._parseLog(data)):
                     self.status = status.FAIL
                     self._kill()
                     break
         self._burnProcess()
-        logFile.close()
+        self.logFile.write('\n\n\n\n\n')
+        return self.returncode
 
     def getDuration(self):
         return self.duration
 
     def _kill(self):
+        self.logFile.write('@Process: kill task\n')
         if not self.process:
             return
         import os, signal
@@ -85,6 +88,10 @@ class Process:
 
     def _burnProcess(self):
         self.returncode = self.process.wait()
+        if self.ignoreFail:
+            tmp_recode = self.returncode
+            self.returncode = 0
+            self.logFile.write('\n@Process: original return code = %s, ignoreFail -> return code = %s\n'%(tmp_recode,self.returncode))
         if self.status:
             return
         if 0 == self.returncode:
@@ -96,7 +103,8 @@ class Process:
             self.status = status.SUCCESS
         if type(self.executable) == types.StringType and self.executable.startswith('root'):
             self.status = status.SUCCESS
-
+        self.logFile.write('-'*10+'\n')
+        self.logFile.write('@Process: result status = %s, recode = %s\n'%(self.status,self.returncode))
 
     def outcome(self):
         if self.status == status.SUCCESS:

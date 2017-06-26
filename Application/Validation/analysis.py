@@ -59,9 +59,12 @@ if 'ana' in sys.argv[1].split('+'):
         exit()
     # analysis
     logfile = '%s_ana.log'%ana_type
+    logFile = open(logfile,'w+')
     print 'root -l -b -q %s+()'%scripts
-    process = Process('root -l -b -q "%s+()"'%scripts,logfile)
+    process = Process('root -l -b -q "%s+()"'%scripts,logFile)
     process.run()
+    logFile.flush()
+    logFile.close()
     if process.returncode == 0:
         print 'analysis successfully'
     else:
