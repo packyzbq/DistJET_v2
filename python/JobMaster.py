@@ -128,7 +128,8 @@ class JobMaster(IJobMaster):
         if not worker:
             master_log.warning('[Master] The uuid=%s of worker has already registered', w_uuid)
         else:
-            send_dict = {'wid':worker.wid, 'appid':self.task_scheduler.appid, 'init':self.task_scheduler.init_worker(), 'uuid':w_uuid}
+            worker_module_path = self.appmgr.current_app.specifiedWorker
+            send_dict = {'wid':worker.wid, 'appid':self.task_scheduler.appid, 'init':self.task_scheduler.init_worker(), 'uuid':w_uuid, 'wmp':worker_module_path}
             self.command_q.put({MPI_Wrapper.Tags.MPI_REGISTY_ACK:send_dict})
             #send_str = MSG_wrapper(wid=worker.wid,appid=self.task_scheduler.appid, init=self.task_scheduler.init_worker())
             #self.server.send_string(send_str, len(send_str), w_uuid, MPI_Wrapper.Tags.MPI_REGISTY_ACK)

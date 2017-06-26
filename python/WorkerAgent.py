@@ -139,31 +139,14 @@ class WorkerAgent:
     """
     agent
     """
-    def __init__(self, capacity=1, worker_path=None):
+    def __init__(self, capacity=1):
         #multiprocessing.Process.__init__(self)
         #BaseThread.__init__(self,"agent")
         import uuid as uuid_mod
         self.uuid = str(uuid_mod.uuid4())
         global wlog
         wlog = logger.getLogger('Worker_%s'%self.uuid)
-        # load specific worker class
-        print "@worker path = %s"%worker_path
         self.worker_class=None
-        if worker_path:
-            module_path = os.path.abspath(worker_path)
-            sys.path.append(os.path.dirname(module_path))
-            worker_name = os.path.basename(module_path)
-            if worker_name.endswith('.py'):
-                worker_name = worker_name[:-3]
-            try:
-                worker_module = __import__(worker_name)
-                if worker_module.__dict__.has_key(worker_name) and callable(worker_module.__dict__[worker_name]):
-                    self.worker_class = worker_module.__dict__[worker_name]
-                    wlog.info('[Agent] Load specific worker class = %s'%self.worker_class)
-            except Exception:
-                wlog.error('[Agent] Error when import worker module %s, path = %s,errmsg=%s'%(worker_name,worker_path,traceback.format_exc()))
-        else:
-            wlog.warning('[Agent] No specific worker input, use default')
 
         self.recv_buff = IM.IRecv_buffer()
         self.__should_stop_flag = False
@@ -202,11 +185,6 @@ class WorkerAgent:
         self.worker_queue_list = []
         self.worker_list = []
         self.worker_status = {}
-        for i in range(self.capacity):
-            self.cond_list.append(threading.Condition())
-            self.worker_list.append(Worker(i,self, self.cond_list[i], worker_class=self.worker_class))
-            wlog.debug('[Agent] Worker %s start'%i)
-            self.worker_list[i].start()
         #self.cond = threading.Condition()
         #self.worker = Worker(self,self.cond)
         #wlog.debug('[Agent] Start Worker Thread')
@@ -228,28 +206,57 @@ class WorkerAgent:
                 #wlog.debug('[Agent] Agent receive a msg = %s'%msg.sbuf[0:msg.size])
                 recv_dict = json.loads(msg.sbuf[0:msg.size])
                 for k,v in recv_dict.items():
-                    # registery info v={wid:val,init:{boot:v, args:v, data:v, resdir:v}, appid:v}
+                    # registery info v={wid:val,init:{boot:v, args:v, data:v, resdir:v}, appid:v, wmp:worker_module_path}
                     if int(k) == Tags.MPI_REGISTY_ACK:
                         self.status = WorkerStatus.RUNNING
                         wlog.debug('[WorkerAgent] Receive Registry_ACK msg = %s'%v)
+                        #parse worker_module_path
+                        worker_path = v['wmp']
+                        if worker_path is not None and worker_path!='None':
+                            module_path = os.path.abspath(worker_path)
+                            sys.path.append(os.path.dirname(module_path))
+                            worker_name = os.path.basename(module_path)
+                            if worker_name.endswith('.py'):
+                                worker_name = worker_name[:-3]
+                            try:
+                                worker_module = __import__(worker_name)
+                                if worker_module.__dict__.has_key(worker_name) and callable(
+                                        worker_module.__dict__[worker_name]):
+                                    self.worker_class = worker_module.__dict__[worker_name]
+                                    wlog.info('[Agent] Load specific worker class = %s' % self.worker_class)
+                            except Exception:
+                                wlog.error('[Agent] Error when import worker module %s, path = %s,errmsg=%s' % (
+                                worker_name, worker_path, traceback.format_exc()))
+                        else:
+                            wlog.warning('[Agent] No specific worker input, use default')
+
                         try:
                             self.wid = v['wid']
                             self.appid = v['appid']
                             self.tmpLock.acquire()
                             self.iniExecutor = v['init']
                             self.tmpLock.release()
+
+                            # notify worker initialize
+                            wlog.info('[Agent] Start up worker and initialize')
+                            for i in range(self.capacity):
+                                self.cond_list.append(threading.Condition())
+                                self.worker_list.append(
+                                    Worker(i, self, self.cond_list[i], worker_class=self.worker_class))
+                                wlog.debug('[Agent] Worker %s start' % i)
+                                self.worker_list[i].start()
+
                             # notify the heartbeat thread
                             wlog.debug('[WorkerAgent] Wake up the heartbeat thread')
                             self.heartcond.acquire()
                             self.heartcond.notify()
                             self.heartcond.release()
-							# notify worker initialize
-                            wlog.info('[Agent] Wake up worker to initialize')
-                            for i in range(len(self.worker_list)):
-                                if self.worker_list[i].status == WorkerStatus.NEW:
-                                    self.cond_list[i].acquire()
-                                    self.cond_list[i].notify()
-                                    self.cond_list[i].release()
+
+                            #for i in range(len(self.worker_list)):
+                            #    if self.worker_list[i].status == WorkerStatus.NEW:
+                            #        self.cond_list[i].acquire()
+                            #        self.cond_list[i].notify()
+                            #        self.cond_list[i].release()
                         except KeyError:
                             pass
                     # add tasks v={tid:{boot:v, args:v, data:v, resdir:v}, tid:....}
@@ -621,11 +628,11 @@ class Worker(BaseThread):
     def run(self):
         while not self.get_stop_flag():
             while not self.initialized:
-                wlog.debug('[Worker] Worker Start and not initial, ready to sleep')
-                self.status = WorkerStatus.NEW
-                self.cond.acquire()
-                self.cond.wait()
-                self.cond.release()
+                wlog.debug('[Worker] Worker Start and not initial')
+                #self.status = WorkerStatus.NEW
+                #self.cond.acquire()
+                #self.cond.wait()
+                #self.cond.release()
 
                 if self.finialized:
                     break

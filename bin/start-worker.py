@@ -68,7 +68,6 @@ if not opts.conf_file or not os.path.exists(opts.conf_file):
 else:
     parg+= ' '+opts.conf_file
 
-parg+=' '+args[0]
 
 # this is the plan A-> each workerAgent has one worker
 print('mpiexec -n %s python $DistJETPATH/bin/worker.py %s'%(opts.worker_num,parg))

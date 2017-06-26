@@ -3,7 +3,7 @@ if 'DistJETPATH' not in os.environ:
     os.environ['DistJETPATH'] = "/afs/ihep.ac.cn/users/z/zhaobq/workerSpace/DistJET_v2"
 sys.path.append(os.getenv('DistJETPATH'))
 import subprocess
-#argv[1]=capacity, argv[2]=conf_file argv[3]=appdir/worker_class
+#argv[1]=capacity, argv[2]=conf_file
 if len(sys.argv) <= 3:
     print('@worker, need at least 3 parameter(given %d), exit'%(len(sys.argv)-1))
     exit()
@@ -30,6 +30,7 @@ cfg = Conf.Config()
 from python import WorkerAgent
 capacity = int(sys.argv[1])
 worker_module_path = None
+'''
 worker_file = sys.argv[3]
 if not worker_file.endswith('.py'):
     worker_file = worker_file+'.py'
@@ -48,7 +49,8 @@ else:
             worker_module_path = prepath+'/'+worker_file
     if not fflag:
         print 'Can not find specific worker module ,use default'
-agent = WorkerAgent.WorkerAgent(capacity,worker_module_path)
+'''
+agent = WorkerAgent.WorkerAgent(capacity)
 agent.run()
 import threading
 print('Worker Agent exit, remains %d thread running, threads list = %s'%(threading.active_count(),threading.enumerate()))

@@ -19,7 +19,6 @@ class IApplication:
 
         self.app_fin_boot = []
         self.app_fin_extra = {}
-
         self.scheduler = None
         self.specifiedWorker = None
         self.log = logger.getLogger(self.name,applog=True)
@@ -104,6 +103,28 @@ class IApplication:
     def set_rootdir(self, rootdir):
         if os.path.exists(rootdir):
             self.rootdir = os.path.abspath(rootdir)
+
+    def set_worker(self,worker_class):
+        worker_module_path = None
+        worker_file = worker_class
+        if not worker_file.endswith('.py'):
+            worker_file = worker_file + '.py'
+        if os.path.exists(worker_file):
+            worker_module_path = os.path.abspath(worker_file)
+            self.log.debug('find specific worker module %s' % os.path.basename(worker_module_path))
+        elif os.path.exists(os.environ['DistJETPATH'] + '/python/Application/' + worker_file):
+            worker_module_path = os.path.abspath(os.environ['DistJETPATH'] + '/python/Application/' + worker_file)
+            self.log.debug('find specific worker module %s' % os.path.basename(worker_module_path))
+        else:
+            fflag = False
+            for dd in os.listdir(os.environ['DistJETPATH'] + '/Application'):
+                prepath = os.environ['DistJETPATH'] + '/Application/' + dd
+                if os.path.exists(prepath + '/' + worker_file):
+                    fflag = True
+                    worker_module_path = prepath + '/' + worker_file
+            if not fflag:
+                self.log.warning('Can not find specific worker module ,use default')
+        self.specifiedWorker = worker_module_path
 
     def split(self):
         """
