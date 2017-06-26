@@ -4,8 +4,8 @@ if 'DistJETPATH' not in os.environ:
 sys.path.append(os.getenv('DistJETPATH'))
 import subprocess
 #argv[1]=capacity, argv[2]=conf_file
-if len(sys.argv) <= 3:
-    print('@worker, need at least 3 parameter(given %d), exit'%(len(sys.argv)-1))
+if len(sys.argv) <= 2:
+    print('@worker, need at least 2 parameter(given %d), exit'%(len(sys.argv)-1))
     exit()
 
 if 'Boost' not in os.environ['PATH']:
