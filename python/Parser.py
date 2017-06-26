@@ -54,7 +54,8 @@ class Parser:
         if not word:
             return True, None
         wordl = word.split('\n')
-        for pattern in self.fatal:
+        for p in self.fatal:
+            pattern = re.compile(p)
             for w in wordl:
                 match = pattern.match(word)
                 if match:

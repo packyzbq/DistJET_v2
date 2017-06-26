@@ -149,6 +149,7 @@ class WorkerAgent:
         global wlog
         wlog = logger.getLogger('Worker_%s'%self.uuid)
         # load specific worker class
+        print "@worker path = %s"%worker_path
         self.worker_class=None
         if worker_path:
             module_path = os.path.abspath(worker_path)
@@ -164,7 +165,7 @@ class WorkerAgent:
             except Exception:
                 wlog.error('[Agent] Error when import worker module %s, path = %s'%(worker_name,worker_path))
         else:
-            print 'No specific worker input, use default'
+            wlog.warning('[Agent] No specific worker input, use default')
 
         self.recv_buff = IM.IRecv_buffer()
         self.__should_stop_flag = False

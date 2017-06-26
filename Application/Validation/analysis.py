@@ -1,5 +1,12 @@
 import os
 import sys
+
+if not os.environ.has_key('JUNOTOP'):
+    print 'Please source JUNO Env first'
+    exit()
+else:
+    print os.environ['JUNOTOP']
+print sys.argv
 from subprocess import PIPE,Popen,STDOUT
 sys.path.append("/afs/ihep.ac.cn/users/z/zhaobq/workerSpace/DistJET_v2")
 from python.Process import Process
@@ -15,7 +22,9 @@ def add_prepare(key, val):
 
 
 
-tagdir = os.path.abspath(sys.argv[3])
+tagdir = sys.argv[3].encode('utf-8')
+print 'tagdir=%s, pwd=%s'%(tagdir,os.getcwd())
+print tagdir
 if os.getcwd()!=tagdir:
     if os.path.exists(tagdir):
         os.chdir(tagdir)
@@ -33,8 +42,11 @@ if not os.path.exists('%s_ana' % ana_type):
 if 'ana' in sys.argv[1].split('+'):
     scripts = sys.argv[4]
     if not os.path.exists(scripts):
-        print 'Can not find analysis script, check path %s'%scripts
-        exit()
+        scripts=os.environ['TUTORIALROOT']+'/'+scripts
+        print scripts
+        if not os.path.exists(os.path.abspath(scripts)):
+            print 'Can not find analysis script, check path %s'%scripts
+            exit()
    # prepare list of *.root
     print 'find %s -name %s*.root | sort -n > lists_%s.txt'%(tagdir,prepare_list_type[ana_type],ana_type)
     rc = Popen(['find %s -name %s*.root | sort -n > lists_%s.txt'%(tagdir,prepare_list_type[ana_type],ana_type)],stdout=PIPE,stderr=PIPE,shell=True)
@@ -64,6 +76,7 @@ if 'cmp' in sys.argv[1].split('+'):
     for f in os.listdir(os.getcwd()):
         if f.endswith('.root'):
             resfile_list.append(f)
+    print 'resfile list = %s'%resfile_list
 
     try:
         refdir = os.path.abspath(sys.argv[5])

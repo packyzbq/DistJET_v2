@@ -33,19 +33,8 @@ class ValWorker(IAPPWorker):
         parg+=' %s'%data[key]['anascript']
         parg+=' %s'%data[key]['refpath']
         if type(boot) == types.ListType:
-            boot = boot[0]
+            boot = boot[0]       
         process = Process('python %s %s'%(boot,parg),log)
         return process.run()
 
 
-if __name__ == '__main__':
-    import os
-    os.environ['DistJETPATH']='/afs/ihep.ac.cn/users/z/zhaobq/workerSpace/DistJET_v2'
-    with open('valworker_test.log','w+') as logfile:
-        worker = ValWorker(logfile)
-        data = {"workdir":'/junofs/production/validation/J17v1r1-Pre2/zhaobq/test/datatest','step':'detsim',
-                'anaflag':True,'cmpflag':True,
-                'refpath':'/junofs/production/validation/J17v1r1-Pre2/zhaobq/test/otherVersion',
-                'anascript':'$TUTORIALROOT/share/SimAnalysis/drawDetSim.C'}
-        recode = worker.do_work(boot=os.environ['DistJETPATH']+'/Application/Validation/analysis.py',data=data,log=logfile)
-        print recode

@@ -44,6 +44,7 @@ class Process:
 
     def run(self):
         self.start = datetime.datetime.now()
+        self.logFile.write(self.executable)
         self.process = subprocess.Popen(args=self.executable, shell=self.shell, stdout=self.stdout,
                                         stderr=subprocess.STDOUT)
         self.pid = self.process.pid

@@ -19,6 +19,13 @@ from python.Util import Conf
 Conf.Config.setCfg('Rundir',os.getcwd())
 if sys.argv[2] != 'null' and os.path.exists(sys.argv[2]):
     Conf.set_inipath(os.path.abspath(sys.argv[2]))
+#load config file
+cfg_path = sys.argv[2]
+if cfg_path == 'null' or os.path.exists(os.path.abspath(cfg_path)):
+    print 'No config file input, use default config'
+    cfg_path = os.getenv('DistJETPATH') + '/config/default.cfg'
+Conf.set_inipath(cfg_path)
+cfg = Conf.Config()
 
 from python import WorkerAgent
 capacity = int(sys.argv[1])
@@ -32,13 +39,15 @@ if os.path.exists(worker_file):
 elif os.path.exists(os.environ['DistJETPATH']+'/python/Application/'+worker_file):
     worker_module_path = os.path.abspath(os.environ['DistJETPATH']+'/python/Application/'+worker_file)
     print 'find specific worker module %s' % os.path.basename(worker_module_path)
-#load config file
-cfg_path = sys.argv[2]
-if cfg_path == 'null' or os.path.exists(os.path.abspath(cfg_path)):
-    print 'No config file input, use default config'
-    cfg_path = os.getenv('DistJETPATH') + '/config/default.cfg'
-Conf.set_inipath(cfg_path)
-cfg = Conf.Config()
+else:
+    fflag = False
+    for dd in os.listdir(os.environ['DistJETPATH']+'/Application'):
+        prepath = os.environ['DistJETPATH']+'/Application/'+dd
+        if os.path.exists(prepath+'/'+worker_file):
+            fflag = True
+            worker_module_path = prepath+'/'+worker_file
+    if not fflag:
+        print 'Can not find specific worker module ,use default'
 agent = WorkerAgent.WorkerAgent(capacity,worker_module_path)
 agent.run()
 import threading
