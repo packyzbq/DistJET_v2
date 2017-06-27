@@ -179,9 +179,32 @@ class WorkerRegistry:
                 return flag
         return flag
 
+    def checkFinalize(self,exp=[]):
+        for uuid in self.alive_workers:
+            entry = self.get_by_uuid(uuid)
+            if entry.status != WorkerStatus.FINALIZED:
+                return False
+        return True
+
     def setContacttime(self, uuid, time):
         wid = self.__all_workers_uuid[uuid]
         self.__all_workers[wid].last_contact_time = time
+
+    def setStatus(self,wid,status):
+        wid = int(wid)
+        wentry = self.get_entry(wid)
+        if wentry.alive:
+            wentry.alive_lock.acquire()
+            wentry.status = status
+            wentry.alive_lock.release()
+        else:
+            wRegistery_log.warning('[Registry] Worker %s is not alive')
+            wentry.alive_lock.acquire()
+            wentry.alive = True
+            wentry.status = status
+            wentry.alive_lock.release()
+            self.alive_workers.add(wentry.w_uuid)
+
 
     def checkLostWorker(self):
         """

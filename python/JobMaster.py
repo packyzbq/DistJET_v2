@@ -91,11 +91,10 @@ class JobMaster(IJobMaster):
             return
         #self.task_scheduler = IScheduler.SimpleScheduler(self.appmgr,self.worker_registry)
         if self.appmgr.get_current_app():
-            self.task_scheduler = self.appmgr.get_current_app().scheduler(self,self.appmgr, self.worker_registry)
+            self.task_scheduler = self.appmgr.get_current_app().scheduler(self, self.appmgr, self.worker_registry)
         else:
-            self.task_scheduler = IScheduler.SimpleScheduler(self,self.appmgr,self.worker_registry)
+            self.task_scheduler = IScheduler.SimpleScheduler(self, self.appmgr, self.worker_registry)
         self.task_scheduler.appid = self.appmgr.get_current_appid()
-
         self.server = MPI_Wrapper.Server(self.recv_buffer,self.svc_name)
         ret = self.server.initialize()
         if ret != 0:
@@ -226,7 +225,7 @@ class JobMaster(IJobMaster):
 #                                for tmptask in assigned:
 #                                    send_dict = dict(send_dict, **({tmptask.tid:tmptask.toDict()}))
 #                                self.command_q.put(send_dict)
-
+                        # FIXME: reinit should in workeragent
                         else:
                             # initial worker failed
                             # TODO: Optional, add other operation
@@ -276,9 +275,30 @@ class JobMaster(IJobMaster):
                         master_log.debug('[Master] From worker %s receive a APP_FIN msg = %s'%(recv_dict['wid'],v))
                         if v['recode'] == status.SUCCESS:
                             self.task_scheduler.worker_finalized(recv_dict['wid'])
-                            master_log.info('worker %s finalized'%recv_dict['wid'])
-                            # TODO if has new app, return Tags.new_app, or return Tags.Logout
-                            self.command_q.put({MPI_Wrapper.Tags.LOGOUT:""})
+                            self.worker_registry.setStatus(recv_dict['wid'],recv_dict['wstatus'])
+                            master_log.info('worker %s finalized, set worker entry status = %s'%(recv_dict['wid'],recv_dict['wstatus']))
+                            if not self.appmgr.has_next_app():
+                                self.command_q.put({MPI_Wrapper.Tags.LOGOUT:""})
+                            else:
+                                # if all worker in Finalization status, go next app
+                                if self.worker_registry.checkFinalize():
+                                    # all worker in Finalization
+                                    self.appmgr.next_app()
+                                    if self.appmgr.get_current_app():
+                                        self.task_scheduler = self.appmgr.get_current_app().scheduler(self, self.appmgr,
+                                                                                                      self.worker_registry)
+                                    else:
+                                        self.task_scheduler = IScheduler.SimpleScheduler(self, self.appmgr,
+                                                                                         self.worker_registry)
+                                        self.task_scheduler.appid = self.appmgr.get_current_appid()
+                                        worker_module_path = self.appmgr.current_app.specifiedWorker
+                                        send_dict = {'appid': self.task_scheduler.appid,
+                                                     'init': self.task_scheduler.init_worker(),
+                                                     'wmp': worker_module_path,
+                                                     'extra':[]
+                                                     }
+                                        self.command_q.put(send_dict)
+                        # FIXME: refinalize should doing in workeragent
                         else:
                             master_log.error('worker %d finalize error, errmsg=%s' % (recv_dict['wid'], v['errmsg']))
                             if self.worker_registry.worker_refin(recv_dict['wid']):
@@ -314,10 +334,10 @@ class JobMaster(IJobMaster):
             # master stop condition
             #time.sleep(1)
             if not self.task_scheduler.has_more_work() and not self.task_scheduler.has_scheduled_work():
-                # TODO master_log.debug('[Master] Finalize app ')
                 self.appmgr.finalize_app()
-                if not self.appmgr.next_app() and self.worker_registry.size() == 0:
-                    master_log.info("[Master] Application done, stop master")
+                if not self.appmgr.has_next_app():
+                    master_log.info("[Master] Application done, logout workers")
+                    # TODO logout worker
                     self.stop()
 
 

@@ -48,6 +48,9 @@ class IAppManager:
         """
         self.app_status[app.id] = True
 
+    def has_next_app(self):
+        return self.current_app_id != len(self.applist)-1
+
     def next_app(self):
         """
         Start the next application
@@ -121,6 +124,9 @@ class SimpleAppManager(IAppManager):
     def next_app(self):
         if self.current_app_id != len(self.applist)-1:
             self.current_app_id += 1
-            return self.applist[self.current_app_id]
+            self.current_app = self.applist[self.current_app_id]
+            self.runflag = self.gen_task_list()
+
+            return True
         else:
             return None
