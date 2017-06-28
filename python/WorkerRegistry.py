@@ -94,6 +94,7 @@ class WorkerRegistry:
             else:
                 self.last_wid+=1
                 w = WorkerEntry(self.last_wid, w_uuid, max_capacity)
+                w.alive = True
                 self.__all_workers[self.last_wid] = w
                 self.__all_workers_uuid[w_uuid] = self.last_wid
                 self.alive_workers.add(w_uuid)
@@ -121,7 +122,7 @@ class WorkerRegistry:
             if self.__all_workers[wid].alive:
                 # finalize worker
                 wRegistery_log.info('attempt to remove alive worker: wid=%d',wid)
-                return False,w_uuid
+                #return False,w_uuid
             wRegistery_log.info('worker removed: wid=%d',wid)
             try:
                 del(self.__all_workers[wid])
@@ -168,12 +169,14 @@ class WorkerRegistry:
         check if all workers is in IDLE status
         :return:
         """
+        if exp:
+            wRegistery_log.debug('[Registry] check idle exclude worker %s, type of exp = %s'%(exp,type(exp[0])))
         flag = True
         for uuid in self.alive_workers:
             wentry = self.get_by_uuid(uuid) 
-            if str(wentry.wid) in exp:
+            if str(wentry.wid) in exp or int(wentry.wid) in exp:
                 continue
-            if wentry.status in [WorkerStatus.RUNNING, WorkerStatus.INITILAZED]:
+            elif wentry.status in [WorkerStatus.RUNNING, WorkerStatus.INITILAZED]:
                 wRegistery_log.info('[Registry] worker %s is in status=%s, cannot finalize'%(wentry.wid, wentry.status))
                 flag = False
                 return flag

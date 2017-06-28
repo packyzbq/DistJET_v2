@@ -223,6 +223,7 @@ class WorkerAgent:
                             self.initExecutor.clear()
                             self.finExecutor.clear()
                             self.fin_flag = False
+                            self.app_fin_flag = False
                             self.haltflag = False
                             self.status = WorkerStatus.NEW
                         else:
@@ -394,7 +395,7 @@ class WorkerAgent:
                 flag = True
                 for worker in self.worker_list:
                     if worker.status != WorkerStatus.IDLE:
-                        #wlog.debug('[Agent] Worker %s is running, cannot finalize'%worker.id)
+                        wlog.debug('[Agent] Worker %s is running, cannot finalize, set finalize flag'%worker.id)
                         flag = False
                         break
                 if flag:

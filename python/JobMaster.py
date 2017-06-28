@@ -250,7 +250,7 @@ class JobMaster(IJobMaster):
                             master_log.debug('[Master] No more task to do')
                             #according to Policy ,check other worker status and idle worker
                             if Config.getPolicyattr('WORKER_SYNC_QUIT'):
-                                if self.worker_registry.checkIdle():            #exp=[recv_dict['wid']]
+                                if self.worker_registry.checkIdle(exp=[recv_dict['wid']]):            #exp=[recv_dict['wid']]
                                     if self.__all_final_flag:
                                         master_log.info('[Master] Have send all finalize msg, skip this')
                                     else:
@@ -342,7 +342,7 @@ class JobMaster(IJobMaster):
             #time.sleep(1)
             if not self.task_scheduler.has_more_work() and not self.task_scheduler.has_scheduled_work():
                 self.appmgr.finalize_app()
-                if not self.appmgr.has_next_app():
+                if not self.appmgr.has_next_app() and self.worker_registry.size()==0:
                     master_log.info("[Master] Application done, logout workers")
                     # TODO logout worker
                     
