@@ -58,7 +58,7 @@ if module.__dict__.has_key('run') and callable(module.__dict__['run']):
     #else:
     app = module.run(sys.argv[4])
     print app
-    applications.append(app)
+    applications.extend(app)
 else:
     print('@master: No callable function "run" in app module, exit')
     exit()

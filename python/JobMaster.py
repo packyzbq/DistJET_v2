@@ -278,11 +278,13 @@ class JobMaster(IJobMaster):
                             self.worker_registry.setStatus(recv_dict['wid'],recv_dict['wstatus'])
                             master_log.info('worker %s finalized, set worker entry status = %s'%(recv_dict['wid'],recv_dict['wstatus']))
                             if not self.appmgr.has_next_app():
+                                master_log.debug('[Master] No more apps, worker logout')
                                 self.command_q.put({MPI_Wrapper.Tags.LOGOUT:""})
                             else:
                                 # if all worker in Finalization status, go next app
                                 if self.worker_registry.checkFinalize():
-                                    # all worker in Finalization
+                                    # all worker in Finalization 
+                                    master_log.info('[Master] all worker finalized, do new app')
                                     self.appmgr.next_app()
                                     if self.appmgr.get_current_app():
                                         self.task_scheduler = self.appmgr.get_current_app().scheduler(self, self.appmgr,
@@ -290,14 +292,19 @@ class JobMaster(IJobMaster):
                                     else:
                                         self.task_scheduler = IScheduler.SimpleScheduler(self, self.appmgr,
                                                                                          self.worker_registry)
-                                        self.task_scheduler.appid = self.appmgr.get_current_appid()
-                                        worker_module_path = self.appmgr.current_app.specifiedWorker
-                                        send_dict = {'appid': self.task_scheduler.appid,
-                                                     'init': self.task_scheduler.init_worker(),
-                                                     'wmp': worker_module_path,
-                                                     'extra':[]
-                                                     }
-                                        self.command_q.put(send_dict)
+                                    self.task_scheduler.appid = self.appmgr.get_current_appid()
+                                    worker_module_path = self.appmgr.current_app.specifiedWorker
+                                    send_dict = {MPI_Wrapper.Tags.MPI_REGISTY_ACK:{'appid': self.task_scheduler.appid,
+                                                                                   'init': self.task_scheduler.init_worker(),
+                                                                                   'wmp': worker_module_path,
+                                                                                   'extra':[],
+                                                                                   'flag':'NEWAPP'
+                                                                                  }
+                                                }
+                                    self.command_q.put(send_dict)
+                                    master_log.debug('[Master] setup new app, send RegAck to worker')
+                                else:
+                                    master_log.info('[Master] other worker is not finalized, wait...')
                         # FIXME: refinalize should doing in workeragent
                         else:
                             master_log.error('worker %d finalize error, errmsg=%s' % (recv_dict['wid'], v['errmsg']))
@@ -317,9 +324,9 @@ class JobMaster(IJobMaster):
                     if send_dict.has_key('extra') and (not send_dict['extra']):
                         del(send_dict['extra'])
                         send_str = json.dumps(send_dict)
-                        master_log.debug('[Master] Send msg = %s' % send_str)
+                        master_log.debug('[Master] Send msg = %s, tag=%s' % (send_str,tag))
                         for uuid in self.worker_registry.alive_workers:
-                            self.server.send_string(send_str, len(send_str), uuid, tag)
+                            self.server.send_string(send_str, len(send_str), str(uuid), tag)
                     elif send_dict.has_key('extra') and send_dict['extra']:
                         tmplist = send_dict['extra']
                         del(send_dict['extra'])
@@ -338,6 +345,7 @@ class JobMaster(IJobMaster):
                 if not self.appmgr.has_next_app():
                     master_log.info("[Master] Application done, logout workers")
                     # TODO logout worker
+                    
                     self.stop()
 
 

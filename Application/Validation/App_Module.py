@@ -6,5 +6,7 @@ def run(config_path=None):
     app.set_boot('start_analysis.sh')
     app.set_resdir("/afs/ihep.ac.cn/users/z/zhaobq/workerSpace/DistJET_v2/test/valtest/resdir")
     app.set_scheduler(SimpleScheduler)
-    return app
+    apps=[]
+    apps.append(app)
+    return apps
 

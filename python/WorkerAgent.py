@@ -91,10 +91,11 @@ class HeartbeatThread(BaseThread):
                 send_dict['rTask'] = self.worker_agent.getRuntasklist()
                 send_dict['ctime'] = time.time()
                 # before send heartbeat, sync agent status
-
-                send_dict['wstatus'] = self.worker_agent.getStatus()
+                self.worker_agent.status_lock.acquire()
+                send_dict['wstatus'] = self.worker_agent.status
+                self.worker_agent.status_lock.release()
                 send_str = json.dumps(send_dict)
-                wlog.debug('[HeartBeat] Send msg = %s'%send_str)
+#                wlog.debug('[HeartBeat] Send msg = %s'%send_str)
                 ret = self._client.send_string(send_str, len(send_str), 0, Tags.MPI_PING)
                 if ret != 0:
                     #TODO add send error handler
@@ -181,6 +182,7 @@ class WorkerAgent:
         self.heartbeat = HeartbeatThread(self.client,self,self.heartcond)
 
         self.status = WorkerStatus.NEW      # represent agent status, used for master management
+        self.status_lock = threading.RLock()
 
         self.cond_list=[]
         self.worker_queue_list = []
@@ -331,7 +333,7 @@ class WorkerAgent:
 
                     # app finalize {boot:v, args:v, data:v, resdir:v}
                     elif int(k) == Tags.APP_FIN:
-                        #self.task_add_acquire = False
+                        self.task_add_acquire = False
                         wlog.debug('[WorkerAgent] Receive APP_FIN msg = %s' % v)
                         self.tmpLock.acquire()
                         self.finExecutor = v
@@ -356,24 +358,35 @@ class WorkerAgent:
 
 
 
-
-            # sync worker status to agent and wait for worker join
+            self.status_lock.acquire()
+            # sync worker finalize status to agent and wait for worker join
             for worker in self.worker_list:
                 if worker.status == WorkerStatus.FINALIZED:
                     while worker.is_alive():
                         worker.join()
                     self.worker_list.remove(worker)
+                    try:
+                        self.worker_status.pop(worker.id)
+                    except:
+                        pass
+                    wlog.debug('[Agent] Remove Finalized worker %s, remains worker list=%s'%(worker.id,self.worker_list))
                 else:
                     self.worker_status[worker.id]=worker.status
             if len(self.worker_list) == 0 and not self.app_fin_flag:
+                self.status = WorkerStatus.FINALIZED
+                self.haltflag=False
                 self.heartbeat.acquire_queue.put({Tags.APP_FIN: {'wid': self.wid, 'recode': status.SUCCESS, 'result': None}})
+                wlog.debug('[Agent] Send APP_FIN msg for logout/newApp')
                 self.app_fin_flag = True
-
+            wlog.debug('[Agent] Before My status = %s'%self.status)           
             # ask for new task
-            if self.task_queue.qsize() < self.capacity and (not self.task_add_acquire) and (not self.fin_flag) and (self.status not in [WorkerStatus.IDLE,WorkerStatus.NEW,WorkerStatus.FINALIZED]) and (not self.haltflag):
+            if self.task_queue.qsize() < self.capacity and (not self.task_add_acquire) and (not self.fin_flag) and (self.status not in [WorkerStatus.NEW,WorkerStatus.FINALIZED]) and (not self.haltflag):
                 wlog.debug('[Agent] Worker need more tasks, ask for new task')
                 self.heartbeat.acquire_queue.put({Tags.TASK_ADD:self.capacity-self.task_queue.qsize()})
                 self.task_add_acquire = True
+            # sync worker running/idle status
+            self.getStatus()
+            wlog.debug('[Agent] After My status = %s'%self.status)
 
             # finalize worker
             if self.fin_flag and self.task_queue.empty():
@@ -394,7 +407,7 @@ class WorkerAgent:
                             self.cond_list[worker.id].acquire()
                             self.cond_list[worker.id].notify()
                             self.cond_list[worker.id].release()
-
+            self.status_lock.release() 
         wlog.debug('[Agent] Wait for worker thread join')
         for worker in self.worker_list:
             worker.join()

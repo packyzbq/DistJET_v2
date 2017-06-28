@@ -7,5 +7,6 @@ def run(conf_path):
     app.set_resdir("/afs/ihep.ac.cn/users/z/zhaobq/workerSpace/DistJET_v2/test/resdir")
     #app.set_worker(TestWorker)
     app.set_scheduler(SimpleScheduler)
-
-    return app
+    apps = []
+    apps.append(app)
+    return apps
