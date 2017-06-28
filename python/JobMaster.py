@@ -257,6 +257,7 @@ class JobMaster(IJobMaster):
                                         tmp_dict = self.task_scheduler.fin_worker()
                                         master_log.debug('[Master] All worker have done, finalize all worker')
                                         self.command_q.put({MPI_Wrapper.Tags.APP_FIN: tmp_dict, 'extra':[]})
+                                        self.__all_final_flag = True
                                 else:
                                     master_log.debug('[Master] There are still running worker, halt')
                                     self.command_q.put({MPI_Wrapper.Tags.WORKER_HALT:''})
@@ -297,11 +298,12 @@ class JobMaster(IJobMaster):
                                     send_dict = {MPI_Wrapper.Tags.MPI_REGISTY_ACK:{'appid': self.task_scheduler.appid,
                                                                                    'init': self.task_scheduler.init_worker(),
                                                                                    'wmp': worker_module_path,
-                                                                                   'extra':[],
                                                                                    'flag':'NEWAPP'
-                                                                                  }
+                                                                                  },
+                                                 'extra':[]
                                                 }
                                     self.command_q.put(send_dict)
+                                    self.__all_final_flag = False
                                     master_log.debug('[Master] setup new app, send RegAck to worker')
                                 else:
                                     master_log.info('[Master] other worker is not finalized, wait...')
@@ -324,7 +326,7 @@ class JobMaster(IJobMaster):
                     if send_dict.has_key('extra') and (not send_dict['extra']):
                         del(send_dict['extra'])
                         send_str = json.dumps(send_dict)
-                        master_log.debug('[Master] Send msg = %s, tag=%s' % (send_str,tag))
+                        master_log.debug('[Master] Send msg = %s, tag=%s, uuid=%s' % (send_str,tag,self.worker_registry.alive_workers))
                         for uuid in self.worker_registry.alive_workers:
                             self.server.send_string(send_str, len(send_str), str(uuid), tag)
                     elif send_dict.has_key('extra') and send_dict['extra']:

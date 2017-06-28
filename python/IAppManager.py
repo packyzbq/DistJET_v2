@@ -85,6 +85,9 @@ class IAppManager:
     def gen_task_list(self, app=None):
         if not app:
             app = self.applist[self.current_app_id]
+        if len(self.task_list) != 0:
+            appmgr_log.warning('there are tasks in list before generate tasks, clear task list')
+            self.task_list.clear()
         tmp_tasklist = self.create_task(app)
         if tmp_tasklist:
             self.app_task_list[app.id] = tmp_tasklist
@@ -98,6 +101,7 @@ class SimpleAppManager(IAppManager):
     def create_task(self, app=None):
         data = app.split()
         app.log.debug('after split')
+        self.tid=0
         for k,v in data.items():
             # create tasks, and store in task_queue
             task = Task.Task(self.tid)
