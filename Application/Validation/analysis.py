@@ -73,6 +73,9 @@ if 'ana' in sys.argv[1].split('+'):
 
 
 if 'cmp' in sys.argv[1].split('+'):
+    # set refpath path
+    tagd = os.path.basename(tagdir)
+    subworkdir = os.path.basename(os.path.dirname(tagdir))
     # cmp step
     os.chdir('%s_ana' % ana_type)
     resfile_list=[]
@@ -83,8 +86,19 @@ if 'cmp' in sys.argv[1].split('+'):
 
     try:
         refdir = os.path.abspath(sys.argv[5])
+        if os.path.exists(refdir+'/'+subworkdir):
+            refdir = refdir+'/'+subworkdir
+            if os.path.exists(refdir+'/'+tagd):
+                refdir = refdir+'/'+tagd
+            else:
+                raise Exception
+        else:
+            raise Exception
     except IndexError:
         print 'No refpath input, skip cmp step skip'
+        exit()
+    except Exception:
+        print 'No such directory = %s'%refdir
         exit()
 
     if not os.path.exists(refdir):
