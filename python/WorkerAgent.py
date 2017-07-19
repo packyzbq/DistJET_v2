@@ -175,6 +175,7 @@ class WorkerAgent:
         self.tmpLock = threading.RLock()
         self.finExecutor = {}
         self.fin_flag = False
+        self.initialized = False # whether agent has initialized
         self.app_fin_flag = False # if agent has sent APP_FIN or not, avoid repeat sending
         self.haltflag=False
         # The operation/requirements need to transfer to master through heart beat
@@ -472,8 +473,13 @@ class WorkerAgent:
         if returncode != 0:
             wlog.error('[Error] Worker %s initialization error, error msg = %s'%(workerid,errmsg))
             #TODO reinit worker
+        if self.initialized:
+            #agent has initialized, assign tasks
+            self.worker_status[workerid] = WorkerStatus.INITILAZED
+            wlog.debug('[Agent] Worker_%s initialized successfully'%workerid)
         else:
             self.status = WorkerStatus.INITILAZED
+            self.initialized = True
             self.worker_status[workerid] = WorkerStatus.INITILAZED
             wlog.debug('[Agent] Feed back app init result')
             self.heartbeat.acquire_queue.put({Tags.APP_INI:{'wid':self.wid,'recode':returncode, 'errmsg':errmsg, 'result':result}})
@@ -672,6 +678,7 @@ class Worker(BaseThread):
                 else:
                     wlog.warning('[Worker_%s] Worker cannot initialize beacuse of lack of data, need keys = boot,data,args,resdir,your key = %s' % (self.id,self.workeragent.iniExecutor.keys()))
                 self.workeragent.tmpLock.release()
+                # FIXME may cause infinit loop
                 if not self.initialized:
                     continue
             if self.finialized:
