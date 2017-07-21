@@ -126,6 +126,7 @@ class AppConf:
 
     def __init__(self, ini_path=None,app_name=None):
         self.config = dict([(k, v) for (k, v) in AppConf.__cfg.items()])
+        self.other_cfg={} #other section: options
         self.app_name = app_name
         if not self.app_name:
             self.app_name='AppConfig'
@@ -144,6 +145,11 @@ class AppConf:
                 if cf.has_section(self.app_name):
                     for key in cf.options(self.app_name):
                         self.config[key] = cf.get(self.app_name,key)
+                for sec in cf.sections():
+                    self.other_cfg[sec]={}
+                    for opt in cf.options(sec):
+                        self.other_cfg[sec][opt]=cf.get(sec,opt)
+
             finally:
                 self.lock.release()
 
@@ -154,12 +160,25 @@ class AppConf:
     #    else:
     #        return None
 
-    def get(self,item):
-        assert type(item) == types.StringType, "ERROR: attribute must be of String type!"
+    def get(self,item, sec=None):
+        if type(item) != types.StringType or sec==None or type(sec) != types.StringType:
+            return None
         if item == "&":
-            return self.config
-        if self.config.has_key(item):
+            if sec:
+                return self.other_cfg[sec]
+            else:
+                return self.config
+        if sec:
+            if self.other_cfg.has_key(sec) and self.other_cfg[sec].has_key(item):
+                return self.other_cfg[sec][item]
+        elif self.config.has_key(item):
             return self.config[item]
+        else:
+            return None
+
+    def getSections(self):
+        if self.other_cfg:
+            return self.other_cfg.keys()
         else:
             return None
 
