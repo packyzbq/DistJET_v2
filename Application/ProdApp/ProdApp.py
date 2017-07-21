@@ -111,16 +111,16 @@ class ProdApp(IApplication):
                 self.log.warning('WARN: Can not find specify driver: %s for sample:%s, skip'%(self.cfg.get('driver',sec=sample),sample))
                 continue
             # check specify script
-            scripts = self.cfg.get('scripts',sec=sample)
+            scripts = self.cfg.get('scripts',sec=sample).split(' ')
             if not scripts:
                 scripts = chain_script
-            elif not scripts in chain_script.keys():
+            elif not set(chain_script.keys()) > set(scripts):
                 self.log.warning("WARN: Can not find specified scripts: %s in driver: %s, skip"%(scripts,self.cfg.get('driver',sec=sample)))
             MakeandCD(sample)
             # generate directory structure and run gen_bash script
             tags = self.cfg.get('tags',sec=sample)
             workflow = self.cfg.get('workflow',sec=sample)
-            for spt in scripts.split(' '):
+            for spt in scripts:
                 back_dir = os.getcwd()
                 worksubdir=None
                 if 'uniform' in spt:
@@ -133,7 +133,7 @@ class ProdApp(IApplication):
                     args = self._gen_args(sample, worksubdir=worksubdir)
                     args+=' %s'%step
                     self.log.info('bash %s %s'%(spt,args))
-                    os.system('bash %s %s'%(spt,args))
+                    os.system('bash %s %s'%(chain_script[spt],args))
                 os.chdir(back_dir)
 
 
@@ -142,15 +142,15 @@ class ProdApp(IApplication):
 
     def _gen_args(self,sample,worksubdir=None):
         args=''
-        arg_list = ['seed','evtmax','njob','tags','workdir','worksubdir']
+        arg_list = ['seed','evtmax','njobs']
+        arg_neg_list = ['driver','scripts','workflow']
         args += ' --setup "$JUNOTOP/setup.sh"'
         for k,v in self.cfg.config.items():
-            if k in arg_list and v:
+            if k in arg_list:
                 args+=' --%s "%s"'%(k,v)
-        for k,v in self.cfg.other_cfg.items():
-            if k.endswith('mode'):
-                args+=' --%s "%s"'%(k,v)
-            if k in arg_list and v:
+        for k,v in self.cfg.other_cfg[sample].items():
+            if k not in arg_neg_list:
+                print '%s:%s'%(k,v)
                 args+=' --%s "%s"'%(k,v)
         if not self.cfg.get('worksubdir',sample) and worksubdir:
             args+=' --worksubdir "%s"'%worksubdir
