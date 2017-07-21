@@ -161,14 +161,11 @@ class AppConf:
     #        return None
 
     def get(self,item, sec=None):
-        if type(item) != types.StringType or sec==None or type(sec) != types.StringType:
+        if type(item) != types.StringType or (sec is not None and type(sec) != types.StringType):
+            print('@Config:[WARN] item or sec cannot be recognized')
             return None
-        if item == "&":
-            if sec:
-                return self.other_cfg[sec]
-            else:
-                return self.config
-        if sec:
+
+        if sec is not None:
             if self.other_cfg.has_key(sec) and self.other_cfg[sec].has_key(item):
                 return self.other_cfg[sec][item]
         elif self.config.has_key(item):

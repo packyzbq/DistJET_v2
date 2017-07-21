@@ -1,21 +1,19 @@
+import sys
+sys.path.append('/afs/ihep.ac.cn/users/z/zhaobq/workerSpace/DistJET_v2')
 from python.Application.IApplication import IApplication
 from python.Util.Conf import AppConf
 import os
 
 class ProdApp(IApplication):
-    def __init__(self,rootdir,name,config_path):
-        IApplication.__init__(rootdir=rootdir,name=name)
+    def __init__(self,rootdir,name,config_path=None):
+        IApplication.__init__(self,rootdir=rootdir,name=name)
         self.workflow = []
         self.driver_dir=[]
         self.driver={} #driver name: driver scripts list
         self.sample_list=[]
 
-
-
-
-
-        if not os.path.exists(os.path.abspath(config_path)):
-            self.log.warning('[ValApp] Can not find config file = %s, use default'%config_path)
+        if not config_path or not os.path.exists(os.path.abspath(config_path)):
+            self.log.warning('[ProdApp] Can not find config file = %s, use default'%config_path)
             config_path = os.environ['DistJETPATH']+'/Application/ProdApp/config.ini'
         self.cfg = AppConf(config_path,'ProdApp')
         if self.cfg.get('topDir'):
@@ -23,17 +21,14 @@ class ProdApp(IApplication):
             self.status['topdir']=True
         self.sample_list.extend(self.cfg.getSections())
         self.JunoTopDir = '/afs/ihep.ac.cn/soft/juno/JUNO-ALL-SLC6'
-        self.JunoVer = self.cfg.get('JUNOver')
+        self.JunoVer = self.cfg.get('junover')
+        print self.JunoVer
         if 'Pre' in self.JunoVer:
             self.JunoTopDir+='/Pre-Release/'+self.JunoVer
         else:
             self.JunoTopDir+='/Release/'+self.JunoVer
 
-        os.chdir(self.res_dir)
-
-        self._find_driver_script()
-        self._generate_job_bash()
-
+    
     def getcfgattr(self,item,sec=None):
         if self.cfg.get(item,sec):
             return self.cfg.get(item)
@@ -41,7 +36,9 @@ class ProdApp(IApplication):
             return None
 
     def split(self):
-        pass
+        os.chdir(self.res_dir)
+        self._find_driver_script()
+        self._generate_job_bash()
 
 
     def merge(self, tasklist):
@@ -157,5 +154,7 @@ class ProdApp(IApplication):
 
 if __name__ == '__main__':
     app = ProdApp('/afs/ihep.ac.cn/users/z/zhaobq/workerSpace/DistJET_v2/Application/ProdApp','ProdApp')
-    app.set_resdir(app.rootdir+'/test')
+    resdir = app.rootdir+'/test'
+    print('resdir = %s'%resdir)
+    app.set_resdir(resdir)
     app.split()
