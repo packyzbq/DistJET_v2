@@ -4,6 +4,12 @@ from python.Application.IApplication import IApplication
 from python.Util.Conf import AppConf
 import os
 
+
+def MakeandCD(path):
+    if not os.path.exists(path):
+        os.mkdir(path)
+    os.chdir(path)
+
 class ProdApp(IApplication):
     def __init__(self,rootdir,name,config_path=None):
         IApplication.__init__(self,rootdir=rootdir,name=name)
@@ -58,6 +64,7 @@ class ProdApp(IApplication):
         user_extra_dir.append(top_driver_dir)
         # get driver list
         for dd in user_extra_dir:
+            print "searching on %s"%dd
             # check directory exists or not
             if not os.path.exists(dd):
                 self.log.warning("WARN: %s does not exist" % dd)
@@ -76,10 +83,12 @@ class ProdApp(IApplication):
 
                 # if the script is already in PathA, use it.
                 scripts = self.driver.get(d, [])
-                scripts_base = {os.path.basename(f): f for f in scripts}
+                scripts_base = {}
+                for f in scripts:
+                    scripts_base[os.path.basename(f)] = f
                 for f in os.listdir(path):
                     # only match prod_*
-                    if not f.startswith('gen_'): continue
+                    if not f.startswith('gen'): continue
                     # if the script is already added, skip it.
                     if scripts_base.has_key(f): continue
                     scripts_base[f] =os.path.join(path,f)
@@ -107,23 +116,20 @@ class ProdApp(IApplication):
                 scripts = chain_script
             elif not scripts in chain_script.keys():
                 self.log.warning("WARN: Can not find specified scripts: %s in driver: %s, skip"%(scripts,self.cfg.get('driver',sec=sample)))
-            os.mkdir(sample)
-            os.chdir(sample)
+            MakeandCD(sample)
             # generate directory structure and run gen_bash script
             tags = self.cfg.get('tags',sec=sample)
             workflow = self.cfg.get('workflow',sec=sample)
-            for spt in scripts.keys():
+            for spt in scripts.split(' '):
                 back_dir = os.getcwd()
                 worksubdir=None
                 if 'uniform' in spt:
-                    os.mkdir('uniform')
-                    os.chdir('uniform')
+                    MakeandCD('uniform')
                     worksubdir = 'uniform'
                 elif 'center' in spt:
-                    os.mkdir('center')
-                    os.chdir('center')
+                    MakeandCD('center')
                     worksubdir='center'
-                for step in workflow:
+                for step in workflow.split(' '):
                     args = self._gen_args(sample, worksubdir=worksubdir)
                     args+=' %s'%step
                     self.log.info('bash %s %s'%(spt,args))
@@ -135,7 +141,7 @@ class ProdApp(IApplication):
 
 
     def _gen_args(self,sample,worksubdir=None):
-        args=None
+        args=''
         arg_list = ['seed','evtmax','njob','tags','workdir','worksubdir']
         args += ' --setup "$JUNOTOP/setup.sh"'
         for k,v in self.cfg.config.items():
@@ -150,8 +156,7 @@ class ProdApp(IApplication):
             args+=' --worksubdir "%s"'%worksubdir
         return args
 
-
-
+    
 if __name__ == '__main__':
     app = ProdApp('/afs/ihep.ac.cn/users/z/zhaobq/workerSpace/DistJET_v2/Application/ProdApp','ProdApp')
     resdir = app.rootdir+'/test'

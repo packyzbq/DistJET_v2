@@ -143,9 +143,12 @@ class AppConf:
                 cf = ConfigParser.ConfigParser()
                 cf.read(ini_path)
                 if cf.has_section(self.app_name):
-                    for key in cf.options(self.app_name):
-                        self.config[key] = cf.get(self.app_name,key)
-                for sec in cf.sections():
+                    main_sec = self.app_name
+                else:
+                    main_sec = cf.sections()[0]
+                for key in cf.options(main_sec):
+                    self.config[key] = cf.get(main_sec,key)
+                for sec in cf.sections()[1:]:
                     self.other_cfg[sec]={}
                     for opt in cf.options(sec):
                         self.other_cfg[sec][opt]=cf.get(sec,opt)
