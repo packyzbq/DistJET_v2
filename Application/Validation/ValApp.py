@@ -9,7 +9,7 @@ class ValApp(IApplication):
         self.topdir=None
         self.anawork=[]
         self.refdir = None
-        self.status['topdir']=False
+        self.setStatus('topdir',False)
         self.ana_flag = True
         self.cmp_flag = True
         if not os.path.exists(os.path.abspath(config_path)):
@@ -18,7 +18,7 @@ class ValApp(IApplication):
         self.cfg = AppConf(config_path,'ValApp')
         if self.cfg.get('topDir'):
             self.topdir=self.cfg.get('topDir')
-            self.status['topdir']=True
+            self.setStatus('topdir')
         '''
         with open(config_path,'r') as f:
             for line in f.readlines():
@@ -35,7 +35,7 @@ class ValApp(IApplication):
     def set_topdir(self, topdir):
         if os.path.exists(os.path.abspath(topdir)):
             self.topdir = topdir
-            self.status['topdir'] = True
+            self.setStatus('topdir')
         else:
             self.log.error('@set topdir error, no such dir=%s'%os.path.abspath(topdir))
 
@@ -72,6 +72,7 @@ class ValApp(IApplication):
                 else:
                     self.log.warning('subworkdir %s is not a valid dir'%os.path.abspath(subworkdir))
         self.log.debug('self.data = %s'%self.data)
+        self.setStatus('data')
         return self.data
 
     def merge(self,tasklist):

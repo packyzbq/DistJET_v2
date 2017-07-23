@@ -22,9 +22,10 @@ class IApplication:
         self.scheduler = None
         self.specifiedWorker = None
         self.log = logger.getLogger(self.name,applog=True)
-        self.status = {'scheduler':False,
-                       'boot':False,
-                       'resdir':False}
+        self.status = {'scheduler':None,
+                       'boot':None,
+                       'resdir':None,
+                       'data':None}
         if os.path.exists(os.path.abspath(rootdir)):
             self.rootdir = os.path.abspath(rootdir)
             self.status['resdir'] = True
@@ -143,7 +144,10 @@ class IApplication:
 
     def checkApp(self):
         for k,v in self.status.items():
-            if not self.status[k]:
+            if self.status[k] is None:
                 self.log.error('Error: App %s is not allow or lack'%k)
                 return False
         return True
+
+    def setStatus(self,item,val=True):
+        self.status[item]=val

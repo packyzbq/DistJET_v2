@@ -27,6 +27,7 @@ class UnitTestApp(IApplication):
             if c != '':
                 self.data[c] = ""
         self.log.info('split data = %s'%self.data)
+        self.setStatus('data')
         return self.data
 
 

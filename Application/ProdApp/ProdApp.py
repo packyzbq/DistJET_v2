@@ -34,6 +34,13 @@ class ProdApp(IApplication):
         else:
             self.JunoTopDir+='/Release/'+self.JunoVer
 
+        self.tags={}
+        for sample in self.sample_list:
+            self.tags[sample] = []
+            self.tags[sample].extends(self.cfg.get('tags',sample).strip().split(' '))
+        self.seed=self.cfg.get('seed')
+        self.njobs=self.cfg.get('njobs')
+
     
     def getcfgattr(self,item,sec=None):
         if self.cfg.get(item,sec):
@@ -42,12 +49,34 @@ class ProdApp(IApplication):
             return None
 
     def split(self):
+        '''
+        sample-name, subworkdir, tags, num->position
+        :return:
+        '''
         os.chdir(self.res_dir)
         self._find_driver_script()
         self._generate_job_bash()
+        key=0
+        subdir_list=[]
+        for sample in self.sample_list:
+            if self.cfg.other_cfg[sample].has_key('worksubdir'):
+                subdir_list = self.cfg.get('worksubdir',sample).strip().split(' ')
+            for tag in self.tags:
+                for subdir in subdir_list:
+                    for i in range(int(self.njobs)):
+                        self.data[key]=[sample,subdir,int(tag,self.seed)+i]
+                        key+=1
+        #check bash is exist?
+        self.log.info('data=%s'%self.data)
+        self.setStatus('data')
+        return self.data
+
+
+
 
 
     def merge(self, tasklist):
+        #TODO check all result
         pass
 
     def _find_driver_script(self,driver_name=None):
@@ -111,7 +140,7 @@ class ProdApp(IApplication):
                 self.log.warning('WARN: Can not find specify driver: %s for sample:%s, skip'%(self.cfg.get('driver',sec=sample),sample))
                 continue
             # check specify script
-            scripts = self.cfg.get('scripts',sec=sample).split(' ')
+            scripts = self.cfg.get('scripts',sec=sample).strip().split(' ')
             if not scripts:
                 scripts = chain_script
             elif not set(chain_script.keys()) > set(scripts):
@@ -124,21 +153,24 @@ class ProdApp(IApplication):
                 back_dir = os.getcwd()
                 worksubdir=None
                 if 'uniform' in spt:
-                    MakeandCD('uniform')
                     worksubdir = 'uniform'
                 elif 'center' in spt:
-                    MakeandCD('center')
                     worksubdir='center'
-                for step in workflow.split(' '):
+                MakeandCD(worksubdir)
+                if self.cfg.get('worksubdir',sample) is not None:
+                    worksubdir = self.cfg.get('worksubdir',sample)+' '+worksubdir
+                flag, errmsg = self.cfg.setOptions('worksubdir', worksubdir, sample)
+                if not flag:
+                    self.log.error('[ERROR] %s' % errmsg)
+                else:
+                    self.log.warning('%s' % errmsg)
+
+                for step in workflow.strip().split(' '):
                     args = self._gen_args(sample, worksubdir=worksubdir)
                     args+=' %s'%step
                     self.log.info('bash %s %s'%(spt,args))
                     os.system('bash %s %s'%(chain_script[spt],args))
                 os.chdir(back_dir)
-
-
-
-
 
     def _gen_args(self,sample,worksubdir=None):
         args=''

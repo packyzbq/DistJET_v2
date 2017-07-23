@@ -182,6 +182,32 @@ class AppConf:
         else:
             return None
 
+    def setOptions(self,item,value,section=None):
+        '''
+        :param item: key
+        :param value: value
+        :param section: other sub config
+        :return: bool,errmsg
+        '''
+        warnmsg=None
+        if type(item) != types.StringType or (section is not None and type(section) != types.StringType):
+            print('@Config:[WARN] item or sec cannot be recognized')
+            return False,'Input type of key/sample error'
+        if section is not None and self.other_cfg.has_key(section):
+            if self.other_cfg[section].has_key(item):
+                warnmsg = '@Config:[WARN] Detect <%s,%s> in cfg, overwrite it'%(item,self.other_cfg[section].get(item))
+            self.other_cfg[section][item]=value
+            return True,warnmsg
+        elif section is None:
+            if self.config.has_key(item):
+                warnmsg = '@Config:[WARN] Detect <%s,%s> in cfg, overwrite it' % (item, self.config.get(item))
+            self.config[item]=value
+            return True,warnmsg
+        else:
+            print '@Config:[ERROR] appcfg has no key:%s'%item
+            return False,'appcfg can not find key %s'%item
+
+
     #def __setattr__(self,key, value):
     #    assert type(key) == types.StringType, "ERROR: attribute must be of String type!"
     #    self.config[key] = value
