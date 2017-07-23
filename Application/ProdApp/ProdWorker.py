@@ -15,14 +15,14 @@ class ProdWorker(IAPPWorker):
         self.log.debug('[ProdWorker] start run task....')
         # FIXME: env mpi need python2.6, python change to 2.7 after source juno env,so cannot run mpi
         #integrate source juno and run bash
-
+        data_value = data.values()[0]
         data_path =''
         data_path+=resdir
         flag = True
         for i in range(3):
             if os.path.exists(data_path):
-                if data_path[i] is not None and data_path[i] in os.listdir(data_path):
-                    data_path+=data_path[i]
+                if data_value[i] is not None and data_value[i] in os.listdir(data_path):
+                    data_path=data_path+'/'+data_value[i]
             else:
                 self.log.error('[ProdApp] Can not find directory=%s'%data_path)
                 flag = False
@@ -30,13 +30,12 @@ class ProdWorker(IAPPWorker):
         if not flag:
             self.log.error('[ProdApp] task error,exit')
             return 1
-
         exec_path =[]
-        for step in data[4]:
+        for step in data_value[4]:
             if step in os.listdir(data_path):
                 for dd in os.listdir(data_path+'/'+step):
-                    if dd.startswith('run') and dd.endswith(str(data[3])+'.sh'):
-                        exec_path.append(data_path+'/'+step+'/'+dd)
+                    if dd.startswith('run') and dd.endswith(str(data_value[3])+'.sh'):
+                            exec_path.append(data_path+'/'+step+'/'+dd)
             else:
                 self.log.warning('[ProdApp] work step %s has no corresponding run scripts, current work flow path=%s'
                                  %(step,os.listdir(data_path)))
@@ -55,7 +54,7 @@ if __name__ == '__main__':
     log = logging.getLogger('testlog')
     log.addHandler(logging.FileHandler('testlog.log'))
     log.addHandler(logging.StreamHandler())
-    worker = ProdWorker()
+    worker = ProdWorker(log)
     ret = worker.do_work(None,{1:['Positron-ch2-uniform','uniform','e+_3.0MeV',64,['detsim','elecsim','calib','rec']]},
                    resdir='/afs/ihep.ac.cn/users/z/zhaobq/workerSpace/DistJET_v2/Application/ProdApp/test')
     print ret
