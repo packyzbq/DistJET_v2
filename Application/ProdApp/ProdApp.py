@@ -25,10 +25,12 @@ class ProdApp(IApplication):
         if self.cfg.get('topDir'):
             self.topdir=self.cfg.get('topDir')
             self.status['topdir']=True
-        self.sample_list.extend(self.cfg.getSections())
+        if self.cfg.get('sample_list',None) is not None:
+            self.sample_list.extend(self.cfg.get('sample_list').strip().split(' '))
+        else:
+            self.sample_list.extend(self.cfg.getSections())
         self.JunoTopDir = '/afs/ihep.ac.cn/soft/juno/JUNO-ALL-SLC6'
         self.JunoVer = self.cfg.get('junover')
-        print self.JunoVer
         if 'Pre' in self.JunoVer:
             self.JunoTopDir+='/Pre-Release/'+self.JunoVer
         else:
@@ -37,7 +39,7 @@ class ProdApp(IApplication):
         self.tags={}
         for sample in self.sample_list:
             self.tags[sample] = []
-            self.tags[sample].extends(self.cfg.get('tags',sample).strip().split(' '))
+            self.tags[sample].extend(self.cfg.get('tags',sample).strip().split(' '))
         self.seed=self.cfg.get('seed')
         self.njobs=self.cfg.get('njobs')
 
@@ -61,10 +63,10 @@ class ProdApp(IApplication):
         for sample in self.sample_list:
             if self.cfg.other_cfg[sample].has_key('worksubdir'):
                 subdir_list = self.cfg.get('worksubdir',sample).strip().split(' ')
-            for tag in self.tags:
+            for tag in self.tags[sample]:
                 for subdir in subdir_list:
                     for i in range(int(self.njobs)):
-                        self.data[key]=[sample,subdir,int(tag,self.seed)+i]
+                        self.data[key]=[sample,subdir,tag,int(self.seed)+i]
                         key+=1
         #check bash is exist?
         self.log.info('data=%s'%self.data)
