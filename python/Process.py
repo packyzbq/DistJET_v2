@@ -21,10 +21,14 @@ class status:
             return status.DES[stat]
 
 class Process:
+    #TODO exe makes a list of scripts
     def __init__(self, exe, logfile, shell=True ,timeout=0, ignoreFail=False):
         self.shell = shell
         self.ignoreFail = ignoreFail
-        self.executable = exe
+        if type(exe) == types.ListType:
+            self.executable = exe
+        if type(exe) == types.StringType:
+            self.executable = [exe]
 
         # Log file name depends on what we are running
         self.logFile = logfile
@@ -44,32 +48,35 @@ class Process:
         self.fatalLine = None
 
     def run(self):
-        self.start = datetime.datetime.now()
-        self.logFile.write(self.executable)
-        self.process = subprocess.Popen(args=self.executable, shell=self.shell, stdout=self.stdout,
-                                        stderr=subprocess.STDOUT)
-        self.pid = self.process.pid
-        self.logFile.write('\n'+'*'*20+' Running log '+'*'*20+'\n')
-        while True:
-            fs = select.select([self.process.stdout], [], [])
-            if not fs[0]:
-                # No response
-                self.status = status.ANR
-                self._kill()
-                break
-            if self.process.stdout in fs[0]:
-                # Incoming message to parse
-                data = os.read(self.process.stdout.fileno(), 1024)
-                if not data:
-                    break
-                # If it is called in analysis step, we print the log info to screen
-                self.logFile.write(data)
-                if (not self.ignoreFail) and (not self._parseLog(data)):
-                    self.status = status.FAIL
+        for runscript in self.executable:
+            self.start = datetime.datetime.now()
+            self.logFile.write(runscript)
+            self.process = subprocess.Popen(args=runscript, shell=self.shell, stdout=self.stdout,
+                                            stderr=subprocess.STDOUT)
+            self.pid = self.process.pid
+            self.logFile.write('\n'+'*'*20+' Running log '+'*'*20+'\n')
+            while True:
+                fs = select.select([self.process.stdout], [], [])
+                if not fs[0]:
+                    # No response
+                    self.status = status.ANR
                     self._kill()
                     break
-        self._burnProcess()
-        self.logFile.write('\n\n\n\n\n')
+                if self.process.stdout in fs[0]:
+                    # Incoming message to parse
+                    data = os.read(self.process.stdout.fileno(), 1024)
+                    if not data:
+                        break
+                    # If it is called in analysis step, we print the log info to screen
+                    self.logFile.write(data)
+                    if (not self.ignoreFail) and (not self._parseLog(data)):
+                        self.status = status.FAIL
+                        self._kill()
+                        break
+            self._burnProcess()
+            self.logFile.write('\n\n\n\n\n')
+            if self.returncode!=0:
+                break
         return self.returncode
 
     def getDuration(self):

@@ -66,7 +66,7 @@ class ProdApp(IApplication):
             for tag in self.tags[sample]:
                 for subdir in subdir_list:
                     for i in range(int(self.njobs)):
-                        self.data[key]=[sample,subdir,tag,int(self.seed)+i]
+                        self.data[key]=[sample,subdir,tag,int(self.seed)+i, self.cfg.get('workflow',sample).split()]
                         key+=1
         #check bash is exist?
         self.log.info('data=%s'%self.data)
