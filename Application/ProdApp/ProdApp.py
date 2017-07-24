@@ -65,7 +65,10 @@ class ProdApp(IApplication):
                 subdir_list = self.cfg.get('worksubdir',sample).strip().split(' ')
             for tag in self.tags[sample]:
                 for subdir in subdir_list:
-                    for i in range(int(self.njobs)):
+                    base_num = self.tags[sample].index(tag)*int(self.njobs)
+                    self.data[key]=[sample,subdir,tag,0,['detsim']]
+                    key+=1
+                    for i in range(base_num,base_num+int(self.njobs)):
                         self.data[key]=[sample,subdir,tag,int(self.seed)+i, self.cfg.get('workflow',sample).split()]
                         key+=1
         #check bash is exist?

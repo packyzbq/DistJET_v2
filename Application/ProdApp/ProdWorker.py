@@ -34,14 +34,15 @@ class ProdWorker(IAPPWorker):
         for step in data_value[4]:
             if step in os.listdir(data_path):
                 for dd in os.listdir(data_path+'/'+step):
-                    if dd.startswith('run') and dd.endswith(str(data_value[3])+'.sh'):
+                    #if dd.startswith('run') and dd.endswith(str(data_value[3])+'.sh'):
+                    if str(data_value[3]) in dd and '.sh' in dd:
                             exec_path.append(data_path+'/'+step+'/'+dd)
             else:
                 self.log.warning('[ProdApp] work step %s has no corresponding run scripts, current work flow path=%s'
                                  %(step,os.listdir(data_path)))
         if len(exec_path)!=0:
             self.log.debug('[ProdApp] Running scripts = %s'%exec_path)
-            process = Process(exec_path)
+            process = Process(exec_path,log)
             ret = process.run()
             self.log.info('[ProdApp] task %s finish'%data.values()[0])
             return ret
@@ -55,6 +56,7 @@ if __name__ == '__main__':
     log.addHandler(logging.FileHandler('testlog.log'))
     log.addHandler(logging.StreamHandler())
     worker = ProdWorker(log)
-    ret = worker.do_work(None,{1:['Positron-ch2-uniform','uniform','e+_3.0MeV',64,['detsim','elecsim','calib','rec']]},
-                   resdir='/afs/ihep.ac.cn/users/z/zhaobq/workerSpace/DistJET_v2/Application/ProdApp/test')
+    with open('test/running.log','w+') as log:
+        ret = worker.do_work(None,{1:['Positron-ch2-uniform','uniform','e+_3.0MeV',65,['detsim','elecsim','calib','rec']]},
+                   resdir='/afs/ihep.ac.cn/users/z/zhaobq/workerSpace/DistJET_v2/Application/ProdApp/test',log=log)
     print ret
