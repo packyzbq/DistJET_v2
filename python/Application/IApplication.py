@@ -7,6 +7,7 @@ from python.Util import Conf
 class IApplication:
     def __init__(self, rootdir, name, config_path=None):
         self.id = None
+        self.flag = None
         self.cfg=None
         self.name = name
         self.app_boot=[]
@@ -139,6 +140,13 @@ class IApplication:
         this method needs to be overwrite by user to merge the result data
         :param tasklist:{tid:taskobj}
         :return:
+        """
+        raise NotImplementedError
+
+    def setup(self):
+        """
+        this method is called by APPManager, tell worker how to setup env
+        :return: list of command, return [E] means error, return None means no need to setup
         """
         raise NotImplementedError
 

@@ -1,11 +1,11 @@
-from python.Application.IApplication import IApplication
+from python.Application.JunoApp import JunoApp
 import subprocess
 import os
 
 
-class UnitTestApp(IApplication):
+class UnitTestApp(JunoApp):
     def __init__(self, rootdir, name):
-        IApplication.__init__(self, rootdir, name)
+        JunoApp.__init__(self, rootdir, name)
         self.task_reslist = {}
 
     def split(self):
